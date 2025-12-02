@@ -56,7 +56,18 @@ export function useInstructors(page = 1, limit = 10) {
     queryKey: [...queryKeys.instructors(), page, limit],
     queryFn: async () => {
       const res = await api.get(`/admin/instructor?page=${page}&limit=${limit}`);
-      return res.data.data;
+      const data = res.data.data;
+      // Handle different response structures:
+      // - If data is an array, return it directly
+      // - If data has an 'instructors' property (paginated response), return that array
+      // - Otherwise return empty array
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.instructors)) {
+        return data.instructors;
+      }
+      return [];
     },
   });
 }

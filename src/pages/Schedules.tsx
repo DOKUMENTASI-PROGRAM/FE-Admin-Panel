@@ -45,6 +45,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TableSkeleton } from '@/components/TableSkeleton';
 
 const scheduleSchema = z.object({
   course_id: z.string().min(1, "Course is required"),
@@ -251,7 +252,7 @@ export default function SchedulesPage() {
     }
   });
 
-  if (isLoading) return <div className="p-4">Loading schedules...</div>;
+  if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading schedules</div>;
 
   const schedules = Array.isArray(schedulesData) ? schedulesData : [];

@@ -38,11 +38,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TableSkeleton } from '@/components/TableSkeleton';
 
 const roomSchema = z.object({
   name: z.string().min(2),
   capacity: z.coerce.number().min(1),
-  location: z.string().min(2),
   description: z.string().optional(),
 });
 
@@ -61,7 +61,6 @@ export default function RoomsPage() {
     defaultValues: {
       name: "",
       capacity: 1,
-      location: "",
       description: "",
     },
   });
@@ -71,7 +70,6 @@ export default function RoomsPage() {
     defaultValues: {
       name: "",
       capacity: 1,
-      location: "",
       description: "",
     },
   });
@@ -82,7 +80,6 @@ export default function RoomsPage() {
       editForm.reset({
         name: selectedRoom.name || "",
         capacity: selectedRoom.capacity || 1,
-        location: selectedRoom.location || "",
         description: selectedRoom.description || "",
       });
     }
@@ -168,7 +165,7 @@ export default function RoomsPage() {
     setIsDeleteOpen(true);
   };
 
-  if (isLoading) return <div>Loading rooms...</div>;
+  if (isLoading) return <TableSkeleton columnCount={4} rowCount={5} />;
   if (error) return <div>Error loading rooms</div>;
 
   const rooms = data || [];
@@ -220,19 +217,6 @@ export default function RoomsPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Floor 1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
@@ -261,7 +245,6 @@ export default function RoomsPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Capacity</TableHead>
-              <TableHead>Location</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -271,7 +254,6 @@ export default function RoomsPage() {
               <TableRow key={room.id}>
                 <TableCell className="font-medium">{room.name}</TableCell>
                 <TableCell>{room.capacity}</TableCell>
-                <TableCell>{room.location}</TableCell>
                 <TableCell>{room.description || '-'}</TableCell>
                 <TableCell>
                   <div className="flex space-x-1">
@@ -333,19 +315,6 @@ export default function RoomsPage() {
                     <FormLabel>Capacity</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -47,6 +47,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TableSkeleton } from '@/components/TableSkeleton';
 
 const updateCourseSchema = z.object({
   title: z.string().min(2, "Title is required"),
@@ -108,10 +109,10 @@ export default function CoursesPage() {
     }
   }, [selectedCourse, editForm]);
 
-  // Update course - PUT /api/admin/courses/:id
+  // Update course - PUT /courses/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateCourseFormValues }) => {
-      return api.put(`/admin/courses/${id}`, data);
+      return api.put(`/courses/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses() });
@@ -129,10 +130,10 @@ export default function CoursesPage() {
     },
   });
 
-  // Delete course - DELETE /api/admin/courses/:id
+  // Delete course - DELETE /courses/:id
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.delete(`/admin/courses/${id}`);
+      return api.delete(`/courses/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses() });
@@ -172,7 +173,7 @@ export default function CoursesPage() {
 
   const instructors = instructorsData?.instructors || instructorsData || [];
 
-  if (isLoading) return <div>Loading courses...</div>;
+  if (isLoading) return <TableSkeleton columnCount={7} rowCount={10} />;
   if (error) return <div>Error loading courses</div>;
 
   const courses = data || [];

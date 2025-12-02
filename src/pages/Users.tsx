@@ -45,6 +45,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
+import { TableSkeleton } from '@/components/TableSkeleton';
 
 const createUserSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -185,7 +186,7 @@ export default function UsersPage() {
     }
   }
 
-  if (isLoading) return <div className="p-4">Loading users...</div>;
+  if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading users</div>;
 
   const users = Array.isArray(data) ? data : [];

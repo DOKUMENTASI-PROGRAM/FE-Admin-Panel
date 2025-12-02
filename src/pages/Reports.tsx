@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/select";
 import { RefreshCw, Download, Activity, DollarSign, Users, CalendarDays } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { TableSkeleton } from '@/components/TableSkeleton';
+import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 
 interface ActivityLog {
   id: string;
@@ -245,7 +247,7 @@ export default function ReportsPage() {
       {reportType === 'summary' && (
         <div className="space-y-4">
           {isLoadingStats ? (
-            <div className="text-center py-8">Loading summary...</div>
+            <DashboardSkeleton />
           ) : statsData ? (
             <>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -358,7 +360,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             {isLoadingLogs ? (
-              <div className="text-center py-8">Loading activity logs...</div>
+              <TableSkeleton columnCount={6} rowCount={5} />
             ) : activityLogs && activityLogs.length > 0 ? (
               <div className="border rounded-md">
                 <Table>
@@ -416,7 +418,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             {isLoadingRevenue ? (
-              <div className="text-center py-8">Loading revenue data...</div>
+              <TableSkeleton columnCount={5} rowCount={5} />
             ) : revenueData && revenueData.length > 0 ? (
               <div className="border rounded-md">
                 <Table>

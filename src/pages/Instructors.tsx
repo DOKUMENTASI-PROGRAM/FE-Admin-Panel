@@ -27,6 +27,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TableSkeleton } from '@/components/TableSkeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,7 +181,7 @@ export default function InstructorsPage() {
     }
   }
 
-  if (isLoading) return <div className="p-4">Loading instructors...</div>;
+  if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading instructors</div>;
 
   const instructors = data?.instructors || data || [];

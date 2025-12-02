@@ -37,6 +37,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TableSkeleton } from '@/components/TableSkeleton';
 
 const studentSchema = z.object({
   email: z.string().email(),
@@ -171,7 +172,7 @@ export default function StudentsPage() {
     setIsDeleteOpen(true);
   };
 
-  if (isLoading) return <div className="p-4">Loading students...</div>;
+  if (isLoading) return <TableSkeleton columnCount={5} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading students</div>;
 
   const students = data?.students || data || [];

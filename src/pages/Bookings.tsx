@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
+import { TableSkeleton } from '@/components/TableSkeleton';
 
 export default function BookingsPage() {
   const { toast } = useToast();
@@ -268,7 +269,7 @@ export default function BookingsPage() {
     }
   };
 
-  if (isLoading) return <div>Loading bookings...</div>;
+  if (isLoading) return <TableSkeleton columnCount={8} rowCount={10} />;
   if (error) return <div>Error loading bookings</div>;
 
   const bookings = Array.isArray(data) ? data : (data?.bookings || []);
