@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Calendar } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -69,16 +69,68 @@ export default function BookingsPage() {
   // Build lookup map for slots
   const slotsMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
+    
+    // Helper function to extract time and day from ISO datetime
+    const extractTimeInfo = (dateString: string) => {
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: false 
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    const extractDayOfWeek = (dateString: string) => {
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { weekday: 'long' });
+      } catch {
+        return 'TBD';
+      }
+    };
+    
     if (Array.isArray(schedulesData)) {
       schedulesData.forEach((schedule: any) => {
-        if (schedule.slots && Array.isArray(schedule.slots)) {
-          schedule.slots.forEach((slot: any) => {
-            const slotInfo = `${slot.day_of_week || slot.day} ${slot.start_time || slot.start} - ${slot.end_time || slot.end}`;
-            lookup[slot.id] = slotInfo;
+        // Handle nested slots array structure
+        const nestedSlots = schedule.slots || schedule.schedule || schedule.timings;
+        if (Array.isArray(nestedSlots)) {
+          nestedSlots.forEach((slot: any) => {
+            if (slot.id) {
+              let slotInfo: string;
+              // Check if it's ISO datetime format
+              if (slot.start_time && slot.start_time.includes('T')) {
+                const dayOfWeek = extractDayOfWeek(slot.start_time);
+                const startTime = extractTimeInfo(slot.start_time);
+                const endTime = extractTimeInfo(slot.end_time);
+                slotInfo = `${dayOfWeek} ${startTime} - ${endTime}`;
+              } else {
+                slotInfo = `${slot.day_of_week || slot.day || 'TBD'} ${slot.start_time || slot.start || ''} - ${slot.end_time || slot.end || ''}`;
+              }
+              lookup[slot.id] = slotInfo;
+            }
           });
+        }
+        
+        // Handle flat structure where schedule itself is the slot
+        if (schedule.id && schedule.start_time && schedule.end_time) {
+          let slotInfo: string;
+          if (schedule.start_time.includes('T')) {
+            const dayOfWeek = extractDayOfWeek(schedule.start_time);
+            const startTime = extractTimeInfo(schedule.start_time);
+            const endTime = extractTimeInfo(schedule.end_time);
+            slotInfo = `${dayOfWeek} ${startTime} - ${endTime}`;
+          } else {
+            slotInfo = `${schedule.day_of_week || 'TBD'} ${schedule.start_time} - ${schedule.end_time}`;
+          }
+          lookup[schedule.id] = slotInfo;
         }
       });
     }
+    console.log('Slots map:', lookup);
     return lookup;
   }, [schedulesData]);
 
@@ -228,7 +280,7 @@ export default function BookingsPage() {
 
   const assignSlotMutation = useMutation({
     mutationFn: ({ bookingId, slotId, scheduleId }: { bookingId: string, slotId: string, scheduleId: string }) => {
-      return api.post(`/booking/admin/bookings/${bookingId}/assign-slot`, { 
+      return api.post(`/booking/api/admin/bookings/${bookingId}/assign-slot`, { 
         slot_id: slotId,
         schedule_id: scheduleId 
       });
@@ -277,6 +329,58 @@ export default function BookingsPage() {
   console.log('Bookings data:', bookings);
   console.log('Student map:', studentMap);
   console.log('Course map:', courseMap);
+  console.log('Schedules data:', schedulesData);
+
+  // Helper function to get first choice slot from booking
+  const getFirstChoiceSlot = (booking: any): string => {
+    // Try different possible field names for first choice slot
+    const slotId = booking.first_choice_slot_id 
+      || booking.first_preference_slot_id 
+      || booking.slot_preferences?.[0]?.slot_id
+      || booking.slot_preferences?.[0]?.id
+      || booking.preferences?.first_slot_id
+      || booking.first_slot_id
+      || booking.schedule_id; // fallback to schedule_id if only one slot assigned
+    
+    if (slotId && slotsMap[slotId]) {
+      return slotsMap[slotId];
+    }
+    
+    // Try to display slot preference text directly if available
+    const prefText = booking.first_preference 
+      || booking.slot_preferences?.[0]?.day_time
+      || booking.slot_preferences?.[0]?.display_text
+      || booking.preferences?.first;
+    
+    if (prefText) return prefText;
+    
+    return '-';
+  };
+
+  // Helper function to get second choice slot from booking
+  const getSecondChoiceSlot = (booking: any): string => {
+    // Try different possible field names for second choice slot
+    const slotId = booking.second_choice_slot_id 
+      || booking.second_preference_slot_id 
+      || booking.slot_preferences?.[1]?.slot_id
+      || booking.slot_preferences?.[1]?.id
+      || booking.preferences?.second_slot_id
+      || booking.second_slot_id;
+    
+    if (slotId && slotsMap[slotId]) {
+      return slotsMap[slotId];
+    }
+    
+    // Try to display slot preference text directly if available
+    const prefText = booking.second_preference 
+      || booking.slot_preferences?.[1]?.day_time
+      || booking.slot_preferences?.[1]?.display_text
+      || booking.preferences?.second;
+    
+    if (prefText) return prefText;
+    
+    return '-';
+  };
 
   return (
     <div className="space-y-6">
@@ -311,10 +415,10 @@ export default function BookingsPage() {
                   {courseMap[booking.course_id] || booking.course_id}
                 </TableCell>
                 <TableCell>
-                  {slotsMap[booking.first_choice_slot_id] || booking.first_preference || '-'}
+                  {getFirstChoiceSlot(booking)}
                 </TableCell>
                 <TableCell>
-                  {slotsMap[booking.second_choice_slot_id] || booking.second_preference || '-'}
+                  {getSecondChoiceSlot(booking)}
                 </TableCell>
                 <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
@@ -322,24 +426,41 @@ export default function BookingsPage() {
                     {booking.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-right space-x-1">
-                  {booking.status === 'pending' && (
-                    <>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="text-green-600 hover:text-green-700"
-                        onClick={() => confirmMutation.mutate(booking.id)}
-                        disabled={confirmMutation.isPending}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" /> Confirm
-                      </Button>
+                <TableCell>
+                  <div className="flex items-center justify-end gap-2">
+                    {booking.status === 'pending' && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-green-600 hover:text-green-700"
+                          onClick={() => confirmMutation.mutate(booking.id)}
+                          disabled={confirmMutation.isPending}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" /> Confirm
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to cancel this booking?')) {
+                              cancelMutation.mutate(booking.id);
+                            }
+                          }}
+                          disabled={cancelMutation.isPending}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    )}
+                    {booking.status === 'confirmed' && (
                       <Button 
                         variant="outline" 
                         size="sm"
                         className="text-red-600 hover:text-red-700"
                         onClick={() => {
-                          if (confirm('Are you sure you want to cancel this booking?')) {
+                          if (confirm('Are you sure you want to cancel this confirmed booking?')) {
                             cancelMutation.mutate(booking.id);
                           }
                         }}
@@ -347,23 +468,9 @@ export default function BookingsPage() {
                       >
                         Cancel
                       </Button>
-                    </>
-                  )}
-                  {booking.status === 'confirmed' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        if (confirm('Are you sure you want to cancel this confirmed booking?')) {
-                          cancelMutation.mutate(booking.id);
-                        }
-                      }}
-                      disabled={cancelMutation.isPending}
-                    >
-                      Cancel
-                    </Button>
-                  )}
+                    )}
+                  </div>
+                  {/* Hidden for now - different flow logic
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -374,6 +481,7 @@ export default function BookingsPage() {
                   >
                     <Calendar className="h-4 w-4 mr-1" /> Assign Slot
                   </Button>
+                  */}
                 </TableCell>
               </TableRow>
             ))}

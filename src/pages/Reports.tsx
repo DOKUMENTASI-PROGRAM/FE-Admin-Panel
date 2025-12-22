@@ -79,7 +79,7 @@ export default function ReportsPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.append('from', dateFrom);
       if (dateTo) params.append('to', dateTo);
-      const response = await api.get(`/admin/activity-logs?${params.toString()}`);
+      const response = await api.get(`/api/admin/activity-logs?${params.toString()}`);
       return response.data as ActivityLog[];
     },
     enabled: reportType === 'activity',
@@ -96,7 +96,7 @@ export default function ReportsPage() {
       const params = new URLSearchParams();
       if (dateFrom) params.append('from', dateFrom);
       if (dateTo) params.append('to', dateTo);
-      const response = await api.get(`/admin/reports/revenue?${params.toString()}`);
+      const response = await api.get(`/api/admin/reports/revenue?${params.toString()}`);
       return response.data as RevenueReport[];
     },
     enabled: reportType === 'revenue',
@@ -110,7 +110,7 @@ export default function ReportsPage() {
   } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await api.get('/admin/dashboard/stats');
+      const response = await api.get('/api/admin/dashboard');
       return response.data as DashboardStats;
     },
     enabled: reportType === 'summary',

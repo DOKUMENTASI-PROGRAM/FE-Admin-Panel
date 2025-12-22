@@ -88,7 +88,7 @@ export default function InstructorsPage() {
   // Create instructor - POST /api/admin/instructor
   const createMutation = useMutation({
     mutationFn: (newInstructor: InstructorFormValues) => {
-      return api.post('/admin/instructor', newInstructor);
+      return api.post('/api/admin/instructor', newInstructor);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.instructors() });
@@ -108,7 +108,7 @@ export default function InstructorsPage() {
   // Update instructor - PUT /api/admin/instructor/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<InstructorFormValues> }) => {
-      return api.put(`/admin/instructor/${id}`, data);
+      return api.put(`/api/admin/instructor/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.instructors() });
@@ -129,7 +129,7 @@ export default function InstructorsPage() {
   // Delete instructor - DELETE /api/admin/instructor/:id
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.delete(`/admin/instructor/${id}`);
+      return api.delete(`/api/admin/instructor/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.instructors() });

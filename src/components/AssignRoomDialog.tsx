@@ -75,7 +75,7 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
 
   const mutation = useMutation({
     mutationFn: async (values: AssignRoomFormValues) => {
-      const response = await api.post("/booking/admin/assign-room", values);
+      const response = await api.post("/booking/api/admin/assign-room", values);
       return response.data;
     },
     onSuccess: () => {

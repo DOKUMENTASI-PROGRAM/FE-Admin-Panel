@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useSchedules, useCourses, useInstructors, useRooms, queryKeys } from '@/hooks/useQueries';
@@ -12,7 +12,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Eye, Trash, Plus } from 'lucide-react';
+import { Edit, Trash, ArrowLeft, Plus, BookOpen, User, MapPin } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +22,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -66,9 +67,13 @@ const scheduleSchema = z.object({
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
 
-export default function SchedulesPage() {
+export default function ScheduleDetailsPage() {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const courseId = searchParams.get('courseId');
+  const instructorId = searchParams.get('instructorId');
+  const roomId = searchParams.get('roomId');
+
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
@@ -81,21 +86,6 @@ export default function SchedulesPage() {
   const { data: roomsData } = useRooms();
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-
-  const createForm = useForm<ScheduleFormValues>({
-    resolver: zodResolver(scheduleSchema),
-    defaultValues: {
-      course_id: "",
-      instructor_id: "",
-      room_id: "",
-      start_date: "",
-      end_date: "",
-      max_students: 5,
-      schedule: [
-        { day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 }
-      ],
-    },
-  });
 
   const editForm = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -112,17 +102,11 @@ export default function SchedulesPage() {
     },
   });
 
-  const { fields: createFields, append: createAppend, remove: createRemove } = useFieldArray({
-    control: createForm.control,
-    name: "schedule",
-  });
-
   const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({
     control: editForm.control,
     name: "schedule",
   });
 
-  // Reset edit form when selected schedule changes
   useEffect(() => {
     if (selectedSchedule) {
       editForm.reset({
@@ -139,27 +123,6 @@ export default function SchedulesPage() {
     }
   }, [selectedSchedule, editForm]);
 
-  // Create schedule - POST /api/admin/schedules
-  const createMutation = useMutation({
-    mutationFn: (newSchedule: ScheduleFormValues) => {
-      return api.post('/api/admin/schedules', newSchedule);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedules() });
-      setIsCreateOpen(false);
-      createForm.reset();
-      toast({ title: "Success", description: "Schedule created successfully" });
-    },
-    onError: (error: any) => {
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: error.response?.data?.message || "Failed to create schedule" 
-      });
-    },
-  });
-
-  // Update schedule - PUT /api/admin/schedules/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ScheduleFormValues }) => {
       return api.put(`/api/admin/schedules/${id}`, data);
@@ -180,7 +143,6 @@ export default function SchedulesPage() {
     },
   });
 
-  // Delete schedule - DELETE /api/admin/schedules/:id
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
       return api.delete(`/api/admin/schedules/${id}`);
@@ -200,18 +162,15 @@ export default function SchedulesPage() {
     },
   });
 
-  const handleOpenView = (group: any) => {
-    const params = new URLSearchParams();
-    if (group.course_id) params.append('courseId', group.course_id);
-    if (group.instructor_id) params.append('instructorId', group.instructor_id);
-    if (group.room_id) params.append('roomId', group.room_id);
-    
-    navigate(`/schedules/details?${params.toString()}`);
+  const handleOpenEdit = (schedule: any) => {
+    setSelectedSchedule(schedule);
+    setIsEditOpen(true);
   };
 
-  function onCreateSubmit(values: ScheduleFormValues) {
-    createMutation.mutate(values);
-  }
+  const handleOpenDelete = (schedule: any) => {
+    setSelectedSchedule(schedule);
+    setIsDeleteOpen(true);
+  };
 
   function onEditSubmit(values: ScheduleFormValues) {
     if (selectedSchedule) {
@@ -223,7 +182,6 @@ export default function SchedulesPage() {
   const instructors = instructorsData?.instructors || instructorsData || [];
   const rooms = roomsData || [];
 
-  // Build lookup maps
   const courseMap: { [key: string]: string } = {};
   courses.forEach((course: any) => {
     if (course && course.id) {
@@ -249,338 +207,124 @@ export default function SchedulesPage() {
   if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading schedules</div>;
 
-  const schedules = Array.isArray(schedulesData) ? schedulesData : [];
-
-  // Grouping Logic
-  const groupedSchedules = schedules.reduce((acc: any, schedule: any) => {
-    const key = `${schedule.course_id}-${schedule.instructor_id}-${schedule.room_id}`;
-    if (!acc[key]) {
-      acc[key] = {
-        ...schedule,
-        items: []
-      };
-    }
-    acc[key].items.push(schedule);
-    return acc;
-  }, {});
-  const groupedSchedulesArray = Object.values(groupedSchedules);
+  const allSchedules = Array.isArray(schedulesData) ? schedulesData : (schedulesData?.data || []);
+  
+  // Filter schedules based on query params
+  const filteredSchedules = allSchedules.filter((s: any) => {
+    const matchCourse = !courseId || courseId === 'undefined' || courseId === 'null' || String(s.course_id) === String(courseId);
+    const matchInstructor = !instructorId || instructorId === 'undefined' || instructorId === 'null' || String(s.instructor_id) === String(instructorId);
+    const matchRoom = !roomId || roomId === 'undefined' || roomId === 'null' || String(s.room_id) === String(roomId);
+    
+    return matchCourse && matchInstructor && matchRoom;
+  });
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Schedules</h2>
-        
-        {/* Create Schedule Dialog */}
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Create Schedule
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Schedule</DialogTitle>
-              <DialogDescription>
-                Set up a new schedule for a course.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...createForm}>
-              <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="course_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Course</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select course" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {courses.map((course: any) => (
-                              <SelectItem key={course.id} value={course.id}>
-                                {course.title || course.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="instructor_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Instructor</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select instructor" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {instructors.map((instructor: any) => (
-                              <SelectItem 
-                                key={instructor.user_id || instructor.id} 
-                                value={instructor.user_id || instructor.id}
-                              >
-                                {instructor.full_name || instructor.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+      <div className="flex items-center space-x-4 mb-6">
+        <Button variant="outline" size="icon" onClick={() => navigate('/schedules')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-3xl font-bold tracking-tight">Schedule Details</h2>
+      </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="room_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Room</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select room" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {rooms.map((room: any) => (
-                              <SelectItem key={room.id} value={room.id}>
-                                {room.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="max_students"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Max Students</FormLabel>
-                        <FormControl>
-                          <Input type="number" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="start_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="end_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-medium">Schedule Slots</h4>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => createAppend({ day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 })}
-                    >
-                      <Plus className="h-4 w-4 mr-2" /> Add Slot
-                    </Button>
-                  </div>
-
-                  {createFields.map((field, index) => (
-                    <div key={field.id} className="grid grid-cols-12 gap-2 items-end border p-2 rounded">
-                      <div className="col-span-3">
-                        <FormField
-                          control={createForm.control}
-                          name={`schedule.${index}.day_of_week`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Day</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {days.map((day) => (
-                                    <SelectItem key={day} value={day}>
-                                      {day.charAt(0).toUpperCase() + day.slice(1)}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <FormField
-                          control={createForm.control}
-                          name={`schedule.${index}.start_time`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Start</FormLabel>
-                              <FormControl>
-                                <Input type="time" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <FormField
-                          control={createForm.control}
-                          name={`schedule.${index}.end_time`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">End</FormLabel>
-                              <FormControl>
-                                <Input type="time" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <FormField
-                          control={createForm.control}
-                          name={`schedule.${index}.duration`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Duration</FormLabel>
-                              <FormControl>
-                                <Input type="number" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        {createFields.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive"
-                            onClick={() => createRemove(index)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? "Creating..." : "Create Schedule"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Course</CardTitle>
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold truncate" title={courseId ? (courseMap[courseId] || courseId) : 'All Courses'}>
+              {courseId ? (courseMap[courseId] || courseId) : 'All Courses'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Instructor</CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold truncate" title={instructorId ? (instructorMap[instructorId] || instructorId) : 'All Instructors'}>
+              {instructorId ? (instructorMap[instructorId] || instructorId) : 'All Instructors'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Room</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold truncate" title={roomId ? (roomMap[roomId] || roomId) : 'All Rooms'}>
+              {roomId ? (roomMap[roomId] || roomId) : 'All Rooms'}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Course</TableHead>
-              <TableHead>Instructor</TableHead>
-              <TableHead>Room</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
+              <TableHead>Date Range</TableHead>
+              <TableHead>Max Students</TableHead>
+              <TableHead>Sessions</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groupedSchedulesArray.length > 0 ? (
-              groupedSchedulesArray.map((group: any, index: number) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">
-                    {courseMap[group.course_id] || group.course_id || '-'}
-                  </TableCell>
+            {filteredSchedules.length > 0 ? (
+              filteredSchedules.map((schedule: any) => (
+                <TableRow key={schedule.id}>
                   <TableCell>
-                    {instructorMap[group.instructor_id] || group.instructor_id || '-'}
+                    {schedule.start_date 
+                      ? `${new Date(schedule.start_date).toLocaleDateString()} - ${schedule.end_date ? new Date(schedule.end_date).toLocaleDateString() : ''}`
+                      : schedule.start_time 
+                        ? new Date(schedule.start_time).toLocaleDateString()
+                        : '-'
+                    }
                   </TableCell>
+                  <TableCell>{schedule.max_students || schedule.rooms?.capacity || '-'}</TableCell>
                   <TableCell>
-                    {roomMap[group.room_id] || group.room_id || '-'}
-                  </TableCell>
-                  <TableCell>
-                    {group.start_date 
-                      ? new Date(group.start_date).toLocaleDateString() 
-                      : group.start_time 
-                        ? new Date(group.start_time).toLocaleDateString()
-                        : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {group.end_date 
-                      ? new Date(group.end_date).toLocaleDateString() 
-                      : group.end_time 
-                        ? new Date(group.end_time).toLocaleDateString()
-                        : '-'}
+                    <div className="flex flex-wrap gap-2">
+                      {(schedule.schedule || schedule.slots || []).map((slot: any, i: number) => (
+                        <Badge key={i} variant="secondary">
+                          {slot.day_of_week?.charAt(0).toUpperCase() + slot.day_of_week?.slice(1)} {slot.start_time?.slice(0, 5)}-{slot.end_time?.slice(0, 5)}
+                        </Badge>
+                      ))}
+                      {(!schedule.schedule && !schedule.slots && schedule.start_time && schedule.end_time) && (
+                        <Badge variant="secondary">
+                          {new Date(schedule.start_time).toLocaleDateString('en-US', { weekday: 'long' })} {new Date(schedule.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}-{new Date(schedule.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      onClick={() => handleOpenView(group)}
-                      title="View Details"
+                      onClick={() => handleOpenEdit(schedule)}
+                      title="Edit"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => handleOpenDelete(schedule)}
+                      title="Delete"
+                    >
+                      <Trash className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4 text-gray-500">
-                  No schedules found
+                <TableCell colSpan={4} className="text-center py-4 text-gray-500">
+                  No schedules found for this group.
                 </TableCell>
               </TableRow>
             )}

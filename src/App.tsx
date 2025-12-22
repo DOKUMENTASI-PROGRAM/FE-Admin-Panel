@@ -6,13 +6,16 @@ import Dashboard from '@/pages/Dashboard'
 import Layout from '@/components/Layout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import StudentsPage from '@/pages/Students'
+import StudentsFEPage from '@/pages/StudentsFE'
 import CoursesPage from '@/pages/Courses'
 import BookingsPage from '@/pages/Bookings'
 import InstructorsPage from '@/pages/Instructors'
 import RoomsPage from '@/pages/Rooms'
 import UsersPage from '@/pages/Users'
 import SchedulesPage from '@/pages/Schedules'
+import ScheduleDetailsPage from '@/pages/ScheduleDetails'
 import ReportsPage from '@/pages/Reports'
+import PaymentsPage from '@/pages/Payments'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,7 +32,7 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/login" element={<Login />} />
           
@@ -38,11 +41,14 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/students" element={<StudentsPage />} />
+            <Route path="/students-fe" element={<StudentsFEPage />} />
             <Route path="/instructors" element={<InstructorsPage />} />
             <Route path="/rooms" element={<RoomsPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/schedules" element={<SchedulesPage />} />
+            <Route path="/schedules/details" element={<ScheduleDetailsPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
           </Route>
           </Route>

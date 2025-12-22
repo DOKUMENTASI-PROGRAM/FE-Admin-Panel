@@ -6,6 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 
+interface RecentActivityItem {
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  status: string;
+}
+
 export default function Dashboard() {
   const { data, isLoading, error } = useDashboard();
   const { data: bookingsData } = useBookings();
@@ -36,7 +44,7 @@ export default function Dashboard() {
     return lookup;
   }, [coursesData]);
 
-  const recentActivity = useMemo(() => {
+  const recentActivity: RecentActivityItem[] = useMemo(() => {
     if (!bookingsData) return [];
     const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData.bookings || []);
     
@@ -123,7 +131,7 @@ export default function Dashboard() {
     { label: "Add New Student", href: "/students", icon: Plus },
     { label: "Create Course", href: "/courses", icon: BookOpen },
     { label: "View Schedule", href: "/schedules", icon: Calendar },
-    { label: "Manage Users", href: "/users", icon: Users },
+    { label: "Manage Booking", href: "/bookings", icon: Calendar },
   ];
 
   return (

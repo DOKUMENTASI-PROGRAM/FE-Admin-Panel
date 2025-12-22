@@ -87,7 +87,7 @@ export default function RoomsPage() {
 
   const createMutation = useMutation({
     mutationFn: (newRoom: z.infer<typeof roomSchema>) => {
-      return api.post('/admin/rooms', newRoom);
+      return api.post('/api/admin/rooms', newRoom);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.rooms() });
@@ -107,7 +107,7 @@ export default function RoomsPage() {
   // Update room - PUT /api/admin/rooms/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: z.infer<typeof roomSchema> }) => {
-      return api.put(`/admin/rooms/${id}`, data);
+      return api.put(`/api/admin/rooms/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.rooms() });
@@ -128,7 +128,7 @@ export default function RoomsPage() {
   // Delete room - DELETE /api/admin/rooms/:id
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.delete(`/admin/rooms/${id}`);
+      return api.delete(`/api/admin/rooms/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.rooms() });

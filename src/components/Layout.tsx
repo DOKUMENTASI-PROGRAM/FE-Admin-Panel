@@ -12,23 +12,87 @@ import {
   Menu,
   Bell,
   Search,
-  ChevronDown
+  ChevronDown,
+  Wifi,
+  WifiOff,
+  Banknote
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
-import { auth } from '@/lib/firebase';
 import api from '@/services/api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAdminNotifications } from '@/hooks/useAdminNotifications';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from '@/lib/supabase';
 
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isConnected, notifications, unreadCount, markAllAsRead, clearNotifications } = useAdminNotifications();
+  
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+  });
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setEditForm({
+          name: parsedUser.name || '',
+          email: parsedUser.email || '',
+        });
+      } catch (e) {
+        console.error("Failed to parse user from local storage", e);
+      }
+    }
+  }, []);
+
+  const handleUpdateProfile = async () => {
+    // In a real app, this would call an API endpoint
+    // For now, we'll just update the local state and localStorage
+    try {
+      const updatedUser = { ...user, ...editForm };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      setIsEditProfileOpen(false);
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Failed to update profile.",
+      });
+    }
+  };
 
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
-      await auth.signOut();
+      // Supabase signOut
+      await supabase.auth.signOut();
+      
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       navigate('/login');
@@ -49,6 +113,8 @@ export default function Layout() {
     { href: '/schedules', label: 'Schedules', icon: Clock },
     { href: '/bookings', label: 'Bookings', icon: Calendar },
     { href: '/students', label: 'Students', icon: GraduationCap },
+    { href: '/students-fe', label: 'Students (FE)', icon: GraduationCap },
+    { href: '/payments', label: 'Payments', icon: Banknote },
     { href: '/reports', label: 'Reports', icon: BarChart3 },
   ];
 
@@ -140,22 +206,127 @@ export default function Layout() {
               />
             </div>
             
-            <Button variant="ghost" size="icon" className="relative text-gray-500 hover:bg-gray-100 rounded-full">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </Button>
+            <div className="relative">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="relative text-gray-500 hover:bg-gray-100 rounded-full group"
+                onClick={() => {
+                  setShowNotifications(!showNotifications);
+                  if (!showNotifications) {
+                    markAllAsRead();
+                  }
+                }}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full border-2 border-white text-[10px] text-white flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+                {/* Realtime Connection Status Indicator */}
+                <span 
+                  className={cn(
+                    "absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-white flex items-center justify-center",
+                    isConnected ? "bg-green-500" : "bg-gray-400"
+                  )}
+                  title={isConnected ? "Realtime Connected" : "Reconnecting..."}
+                >
+                  {isConnected ? (
+                    <Wifi className="h-2 w-2 text-white" />
+                  ) : (
+                    <WifiOff className="h-2 w-2 text-white" />
+                  )}
+                </span>
+              </Button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
+                  <div className="p-3 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="font-semibold text-sm">Notifications</h3>
+                    {notifications.length > 0 && (
+                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-gray-500" onClick={clearNotifications}>
+                        Clear all
+                      </Button>
+                    )}
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-sm">
+                        No notifications
+                      </div>
+                    ) : (
+                      notifications.map((notification, index) => (
+                        <div key={index} className="p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className={cn(
+                              "text-xs font-medium px-2 py-0.5 rounded-full",
+                              notification.eventType === 'booking.created' ? "bg-green-100 text-green-700" :
+                              notification.eventType === 'booking.cancelled' ? "bg-red-100 text-red-700" :
+                              "bg-blue-100 text-blue-700"
+                            )}>
+                              {notification.eventType.split('.')[1]}
+                            </span>
+                            <span className="text-[10px] text-gray-400">
+                              {new Date(notification.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700">
+                            Booking ID: {notification.bookingId.slice(0, 8)}...
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Status: {notification.status}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="h-8 w-px bg-gray-200 mx-1"></div>
 
-            <div className="flex items-center gap-3 pl-2">
-              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium border border-primary/20">
-                A
+            <div className="relative">
+              <div 
+                className="flex items-center gap-3 pl-2 cursor-pointer hover:bg-gray-50 p-1 rounded-lg transition-colors"
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+              >
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium border border-primary/20">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <div className="hidden md:block">
+                  <p className="text-sm font-medium text-gray-700">{user?.name || 'Admin User'}</p>
+                  <p className="text-xs text-gray-500">{user?.role || 'Administrator'}</p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-gray-400 hidden md:block" />
               </div>
-              <div className="hidden md:block">
-                <p className="text-sm font-medium text-gray-700">Admin User</p>
-                <p className="text-xs text-gray-500">Administrator</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-gray-400 hidden md:block" />
+
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
+                  <div className="p-1">
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start text-sm font-normal"
+                      onClick={() => {
+                        setIsEditProfileOpen(true);
+                        setShowProfileMenu(false);
+                      }}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" />
+                      Edit Profile
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start text-sm font-normal text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -167,6 +338,41 @@ export default function Layout() {
           </div>
         </main>
       </div>
+
+      <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <Input
+                id="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handleUpdateProfile}>Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

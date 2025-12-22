@@ -103,7 +103,7 @@ export default function UsersPage() {
   // Create user - POST /api/admin/users
   const createMutation = useMutation({
     mutationFn: (newUser: CreateUserFormValues) => {
-      return api.post('/admin/users', newUser);
+      return api.post('/api/admin/users', newUser);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users() });
@@ -123,7 +123,7 @@ export default function UsersPage() {
   // Update user - PUT /api/admin/users/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserFormValues }) => {
-      return api.put(`/admin/users/${id}`, data);
+      return api.put(`/api/admin/users/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users() });
@@ -144,7 +144,7 @@ export default function UsersPage() {
   // Delete user - DELETE /api/admin/users/:id
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.delete(`/admin/users/${id}`);
+      return api.delete(`/api/admin/users/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users() });

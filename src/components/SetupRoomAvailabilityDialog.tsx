@@ -72,7 +72,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
 
   const mutation = useMutation({
     mutationFn: async (values: AvailabilityFormValues) => {
-      const response = await api.post(`/admin/rooms/${roomId}/availability`, values);
+      const response = await api.post(`/api/admin/rooms/${roomId}/availability`, values);
       return response.data;
     },
     onSuccess: () => {

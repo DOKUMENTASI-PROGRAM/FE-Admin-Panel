@@ -24,7 +24,7 @@ export function useUsers() {
   return useQuery({
     queryKey: queryKeys.users(),
     queryFn: async () => {
-      const res = await api.get('/admin/users');
+      const res = await api.get('/api/admin/users');
       let users = res.data.data || [];
       if (!Array.isArray(users)) {
         users = [];
@@ -41,7 +41,7 @@ export function useStudents(page = 1, limit = 10) {
   return useQuery({
     queryKey: [...queryKeys.students(), page, limit],
     queryFn: async () => {
-      const res = await api.get(`/admin/students?page=${page}&limit=${limit}`);
+      const res = await api.get(`/api/admin/students?page=${page}&limit=${limit}`);
       return res.data.data;
     },
   });
@@ -49,13 +49,13 @@ export function useStudents(page = 1, limit = 10) {
 
 /**
  * Fetch instructors - reusable across all pages
- * Updated to use /admin/instructor endpoint as per documentation
+ * Updated to use /api/admin/instructor endpoint as per documentation
  */
 export function useInstructors(page = 1, limit = 10) {
   return useQuery({
     queryKey: [...queryKeys.instructors(), page, limit],
     queryFn: async () => {
-      const res = await api.get(`/admin/instructor?page=${page}&limit=${limit}`);
+      const res = await api.get(`/api/admin/instructor?page=${page}&limit=${limit}`);
       const data = res.data.data;
       // Handle different response structures:
       // - If data is an array, return it directly
@@ -79,7 +79,7 @@ export function useCourses() {
   return useQuery({
     queryKey: queryKeys.courses(),
     queryFn: async () => {
-      const res = await api.get('/admin/courses');
+      const res = await api.get('/api/admin/courses');
       let courses = res.data.data || [];
       if (!Array.isArray(courses)) {
         courses = [];
@@ -96,7 +96,7 @@ export function useBookings() {
   return useQuery({
     queryKey: queryKeys.bookings(),
     queryFn: async () => {
-      const res = await api.get('/admin/bookings');
+      const res = await api.get('/api/admin/bookings');
       return res.data.data;
     },
   });
@@ -109,7 +109,7 @@ export function useRooms() {
   return useQuery({
     queryKey: queryKeys.rooms(),
     queryFn: async () => {
-      const res = await api.get('/admin/rooms');
+      const res = await api.get('/api/admin/rooms');
       return res.data.data;
     },
   });
@@ -122,7 +122,7 @@ export function useSchedules() {
   return useQuery({
     queryKey: queryKeys.schedules(),
     queryFn: async () => {
-      const res = await api.get('/admin/schedules');
+      const res = await api.get('/api/admin/schedules');
       return res.data.data;
     },
   });
@@ -135,7 +135,7 @@ export function useDashboard() {
   return useQuery({
     queryKey: queryKeys.dashboard(),
     queryFn: async () => {
-      const res = await api.get('/admin/dashboard');
+      const res = await api.get('/api/admin/dashboard');
       return res.data.data;
     },
   });

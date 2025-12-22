@@ -88,7 +88,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
 
   const mutation = useMutation({
     mutationFn: async (values: ScheduleFormValues) => {
-      const response = await api.post("/admin/schedules", values);
+      const response = await api.post("/api/admin/schedules", values);
       return response.data;
     },
     onSuccess: () => {
