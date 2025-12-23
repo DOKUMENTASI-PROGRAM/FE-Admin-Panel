@@ -23,12 +23,13 @@ export const STUDENT_PHOTOS_BUCKET = 'student-photos';
  */
 export async function uploadToStorage(
   file: File,
-  bucket: string = STUDENT_PHOTOS_BUCKET
+  bucket: string = STUDENT_PHOTOS_BUCKET,
+  folder: string = 'students'
 ): Promise<string> {
   // Generate a unique filename with timestamp
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-  const filePath = `students/${fileName}`;
+  const filePath = `${folder}/${fileName}`;
 
   // Upload the file
   const { data, error } = await supabase.storage

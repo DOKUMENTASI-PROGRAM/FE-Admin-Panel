@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentService } from '@/services/paymentService';
-import { Payment, PaymentStatus, PaymentMethod, PaymentType } from '@/types/payment';
+import { Payment, PaymentStatus, PaymentMethod } from '@/types/payment';
 import { Button } from '@/components/ui/button'; // Assuming these exist
 import { Input } from '@/components/ui/input';
 import {
@@ -40,11 +40,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { useBookings } from '@/hooks/useQueries';
+import { useBookings, useUsers } from '@/hooks/useQueries';
 import { cn } from '@/lib/utils';
+import { uploadToStorage } from '@/lib/supabase';
 
 export default function PaymentsPage() {
   const { toast } = useToast();
@@ -52,48 +63,50 @@ export default function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [openCombobox, setOpenCombobox] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
-    student_id: '',
+    booking_id: '',
     amount: '',
     payment_date: new Date().toISOString().split('T')[0],
+    payment_period: new Date().toISOString().slice(0, 7), // YYYY-MM
     payment_method: 'transfer' as PaymentMethod,
-    payment_type: 'monthly' as PaymentType,
-    status: 'success' as PaymentStatus,
+    // status is not in the requested payload, but we might keep it for local UI state if needed, 
+    // or remove it from payload construction.
+    status: 'success' as PaymentStatus, 
     notes: '',
+    payment_proof: '',
   });
 
   // Fetch Bookings for auto-suggestion
   const { data: bookingsData } = useBookings();
+  const { data: usersData = [] } = useUsers();
 
-  // Create unique list of confirmed students from bookings
-  const students = useMemo(() => {
-    // Handle both array and object response formats (consistent with Bookings.tsx)
-    const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
-    
-    if (!bookings || !Array.isArray(bookings)) return [];
-    
-    // Filter for confirmed bookings and map to student info
-    const confirmedBookings = bookings.filter((b: any) => b.status === 'confirmed');
-    
-    // Create a map to ensure uniqueness by user_id
-    const studentMap = new Map();
-    
-    confirmedBookings.forEach((b: any) => {
-      if (b.user_id && !studentMap.has(b.user_id)) {
-        studentMap.set(b.user_id, {
-          id: b.user_id,
-          name: b.applicant_full_name || b.user_id, // Fallback to ID if name missing
-          school: b.applicant_school
-        });
-      }
-    });
-
-    return Array.from(studentMap.values());
-  }, [bookingsData]);
+    // Create unique list of confirmed students from bookings
+    const students = useMemo(() => {
+      // Handle both array and object response formats
+      const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
+      
+      if (!bookings || !Array.isArray(bookings)) return [];
+      
+      // Filter for confirmed bookings
+      const confirmedBookings = bookings.filter((b: any) => b.status === 'confirmed');
+      
+      // Map to items needed for the dropdown
+      // We use booking.id as the identifier because the payload requires booking_id
+      return confirmedBookings.map((b: any) => ({
+        id: b.id, // This is the booking_id
+        user_id: b.user_id,
+        name: b.applicant_full_name || b.user_id,
+        school: b.applicant_school
+      }));
+    }, [bookingsData]);
 
   // Fetch Payments
   const { data: paymentsResponse, isLoading } = useQuery({
@@ -139,46 +152,109 @@ export default function PaymentsPage() {
     onError: (error: any) => {
       toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Failed to delete payment' });
     },
+    onSettled: () => {
+      setDeleteConfirmOpen(false);
+      setPaymentToDelete(null);
+    }
   });
 
   const resetForm = () => {
     setFormData({
-      student_id: '',
+      booking_id: '',
       amount: '',
       payment_date: new Date().toISOString().split('T')[0],
+      payment_period: new Date().toISOString().slice(0, 7),
       payment_method: 'transfer',
-      payment_type: 'monthly',
       status: 'success',
       notes: '',
+      payment_proof: '',
     });
     setSelectedPayment(null);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Invalid file format. Please use JPEG, PNG, WebP, or GIF."
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "File size must be less than 5MB."
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const url = await uploadToStorage(file, 'student-photos', 'payments');
+      setFormData(prev => ({ ...prev, payment_proof: url }));
+      toast({ title: 'Success', description: 'Image uploaded successfully' });
+    } catch (error: any) {
+       console.error(error);
+       toast({ variant: 'destructive', title: 'Error', description: 'Upload failed' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleViewClick = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setIsDetailOpen(true);
   };
 
   const handleEditClick = (payment: Payment) => {
     setSelectedPayment(payment);
     setFormData({
-      student_id: payment.student_id, // Note: In real app, might need to handle display/value diff if student_id not directly available or needs lookup
+      booking_id: payment.booking_id || '', // careful: if editing existing payment that might have student_id but no booking_id if legacy? 
+      // Assuming payment object has booking_id if we want to support edit fully. 
+      // But for now focusing on ADD. 
+      // Existing payments might not have booking_id in FE model if not updated.
+      // Let's rely on what we have.
       amount: String(payment.amount),
-      payment_date: payment.payment_date.split('T')[0],
+      payment_date: new Date(payment.payment_date).toISOString().split('T')[0],
+      payment_period: new Date().toISOString().slice(0, 7), // Default for edit if missing, or we need to look it up? Payload doesn't return period usually.
       payment_method: payment.payment_method,
-      payment_type: payment.payment_type,
-      status: payment.status,
+      status: payment.status || 'success',
       notes: payment.notes || '',
+      payment_proof: payment.payment_proof || '',
     });
     setIsEditOpen(true);
   };
 
   const handleDeleteClick = (id: string) => {
-    if (confirm('Are you sure you want to delete this payment?')) {
-      deleteMutation.mutate(id);
+    setPaymentToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (paymentToDelete) {
+      deleteMutation.mutate(paymentToDelete);
     }
   };
 
   const handleSubmit = (e: React.FormEvent, isEdit: boolean) => {
     e.preventDefault();
     const payload = {
-      ...formData,
+      booking_id: formData.booking_id,
       amount: Number(formData.amount),
+      payment_date: new Date(formData.payment_date).toISOString(), // "2025-12-23T00:00:00.000Z"
+      payment_method: formData.payment_method,
+      payment_period: new Date(formData.payment_period).toLocaleString('en-US', { month: 'long', year: 'numeric' }), // "December 2025"
+      payment_proof: formData.payment_proof,
+      notes: formData.notes
     };
 
     if (isEdit && selectedPayment) {
@@ -239,20 +315,39 @@ export default function PaymentsPage() {
               payments.map((payment: Payment) => (
                 <TableRow key={payment.id}>
                   <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
-                  <TableCell className="font-medium">{payment.student_name || payment.student_id}</TableCell>
-                  <TableCell className="capitalize">{payment.payment_type}</TableCell>
+                  <TableCell className="font-medium">
+                    {(() => {
+                      if (payment.student_name) return payment.student_name;
+                      if (payment.booking_id) {
+                        const rawBookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
+                        const booking = rawBookings.find((b: any) => b.id === payment.booking_id);
+                        if (booking) {
+                           if (booking.applicant_full_name) return booking.applicant_full_name;
+                           // Fallback to user data if available
+                           const user = usersData.find((u: any) => u.id === booking.user_id);
+                           if (user) return user.full_name || user.name || user.email;
+                           return booking.user_id; // Last resort fallback
+                        }
+                      }
+                      return students.find(s => s.id === payment.student_id)?.name || payment.student_id || '-';
+                    })()}
+                  </TableCell>
+                  <TableCell className="capitalize">{payment.payment_type || (payment.payment_method === 'Initial Booking' ? 'Registration' : 'Monthly')}</TableCell>
                   <TableCell className="capitalize">{payment.payment_method.replace('_', ' ')}</TableCell>
                   <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                      ${payment.status === 'success' ? 'bg-green-100 text-green-800' : 
-                        payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                      ${(payment.status || 'success') === 'success' ? 'bg-green-100 text-green-800' : 
+                        (payment.status || 'success') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                         'bg-red-100 text-red-800'}`}>
-                      {payment.status}
+                      {payment.status || 'Success'}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleViewClick(payment)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEditClick(payment)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -287,8 +382,8 @@ export default function PaymentsPage() {
                       aria-expanded={openCombobox}
                       className="justify-between"
                     >
-                      {formData.student_id
-                        ? students.find((student) => student.id === formData.student_id)?.name || formData.student_id
+                      {formData.booking_id
+                        ? students.find((student) => student.id === formData.booking_id)?.name || formData.booking_id
                         : "Select student..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -304,14 +399,14 @@ export default function PaymentsPage() {
                               key={student.id}
                               value={`${student.name} ${student.id}`}
                               onSelect={() => {
-                                setFormData({...formData, student_id: student.id});
+                                setFormData({...formData, booking_id: student.id});
                                 setOpenCombobox(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  formData.student_id === student.id ? "opacity-100" : "opacity-0"
+                                  formData.booking_id === student.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               <div className="flex flex-col">
@@ -337,15 +432,13 @@ export default function PaymentsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label>Type</Label>
-                  <Select value={formData.payment_type} onValueChange={(val: PaymentType) => setFormData({...formData, payment_type: val})}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="registration">Registration</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="payment_period">Period</Label>
+                  <Input 
+                    id="payment_period" 
+                    type="month" 
+                    value={formData.payment_period} 
+                    onChange={(e) => setFormData({...formData, payment_period: e.target.value})} 
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label>Method</Label>
@@ -361,8 +454,52 @@ export default function PaymentsPage() {
                 </div>
               </div>
               <div className="grid gap-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status} onValueChange={(val: PaymentStatus) => setFormData({...formData, status: val})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="success">Success</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Input id="notes" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="payment_proof">Payment Proof</Label>
+                <div className="flex flex-col gap-2">
+                  {formData.payment_proof && (
+                    <div className="relative w-full h-40 bg-muted rounded-md overflow-hidden">
+                      <img 
+                        src={formData.payment_proof} 
+                        alt="Preview" 
+                        className="w-full h-full object-contain"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-6 w-6"
+                        onClick={() => setFormData(prev => ({ ...prev, payment_proof: '' }))}
+                      >
+                         <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      id="payment_proof" 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      disabled={isUploading}
+                    />
+                    {isUploading && <Loader2 className="animate-spin h-4 w-4" />}
+                  </div>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -378,10 +515,93 @@ export default function PaymentsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Payment</DialogTitle>
+            <DialogDescription>
+              Update payment details including student, amount, and status.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => handleSubmit(e, true)}>
             <div className="grid gap-4 py-4">
-               {/* Simplified edit form - usually maybe only status or amounts can be edited */}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="edit_student_id">Student Name</Label>
+                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCombobox}
+                      className="justify-between"
+                    >
+                      {formData.booking_id
+                        ? students.find((student) => student.id === formData.booking_id)?.name || formData.booking_id
+                        : "Select student..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search student..." />
+                      <CommandList>
+                        <CommandEmpty>No student found.</CommandEmpty>
+                        <CommandGroup>
+                          {students.map((student) => (
+                            <CommandItem
+                              key={student.id}
+                              value={`${student.name} ${student.id}`}
+                              onSelect={() => {
+                                setFormData({...formData, booking_id: student.id});
+                                setOpenCombobox(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  formData.booking_id === student.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{student.name}</span>
+                                {student.school && <span className="text-xs text-muted-foreground">{student.school}</span>}
+                                <span className="text-[10px] text-muted-foreground hidden">{student.id}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit_amount">Amount</Label>
+                <Input id="edit_amount" type="number" required value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit_payment_date">Date</Label>
+                <Input id="edit_payment_date" type="date" required value={formData.payment_date} onChange={(e) => setFormData({...formData, payment_date: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit_payment_period">Period</Label>
+                  <Input 
+                    id="edit_payment_period" 
+                    type="month" 
+                    value={formData.payment_period} 
+                    onChange={(e) => setFormData({...formData, payment_period: e.target.value})} 
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Method</Label>
+                  <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="transfer">Transfer</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="qris">QRIS</SelectItem>
+                      <SelectItem value="virtual_account">Virtual Account</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit_status">Status</Label>
                 <Select value={formData.status} onValueChange={(val: PaymentStatus) => setFormData({...formData, status: val})}>
@@ -397,6 +617,39 @@ export default function PaymentsPage() {
                 <Label htmlFor="edit_notes">Notes</Label>
                 <Input id="edit_notes" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
               </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit_payment_proof">Payment Proof</Label>
+                 <div className="flex flex-col gap-2">
+                  {formData.payment_proof && (
+                    <div className="relative w-full h-40 bg-muted rounded-md overflow-hidden">
+                      <img 
+                        src={formData.payment_proof} 
+                        alt="Preview" 
+                        className="w-full h-full object-contain"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-6 w-6"
+                        onClick={() => setFormData(prev => ({ ...prev, payment_proof: '' }))}
+                      >
+                         <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      id="edit_payment_proof" 
+                      type="file" 
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      disabled={isUploading}
+                    />
+                     {isUploading && <Loader2 className="animate-spin h-4 w-4" />}
+                  </div>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
@@ -405,6 +658,111 @@ export default function PaymentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Payment Details</DialogTitle>
+          </DialogHeader>
+          {selectedPayment && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Student Name</Label>
+                  <div className="font-medium">
+                    {(() => {
+                       if (selectedPayment.student_name) return selectedPayment.student_name;
+                       if (selectedPayment.booking_id) {
+                         const rawBookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
+                         const booking = rawBookings.find((b: any) => b.id === selectedPayment.booking_id);
+                         if (booking) {
+                            if (booking.applicant_full_name) return booking.applicant_full_name;
+                            const user = usersData.find((u: any) => u.id === booking.user_id);
+                            if (user) return user.full_name || user.name || user.email;
+                            return booking.user_id;
+                         }
+                       }
+                       return students.find(s => s.id === selectedPayment.student_id)?.name || selectedPayment.student_id || '-';
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Amount</Label>
+                  <div className="font-medium">Rp {selectedPayment.amount.toLocaleString()}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Date</Label>
+                  <div className="font-medium">{new Date(selectedPayment.payment_date).toLocaleDateString()}</div>
+                </div>
+                 <div>
+                  <Label className="text-muted-foreground">Period</Label>
+                  <div className="font-medium capitalize">{selectedPayment.payment_period || '-'}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Method</Label>
+                  <div className="font-medium capitalize">{selectedPayment.payment_method.replace('_', ' ')}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                      ${(selectedPayment.status || 'success') === 'success' ? 'bg-green-100 text-green-800' : 
+                        (selectedPayment.status || 'success') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                        'bg-red-100 text-red-800'}`}>
+                      {selectedPayment.status || 'Success'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-muted-foreground">Notes</Label>
+                <div className="text-sm border rounded-md p-2 mt-1 min-h-[60px]">
+                  {selectedPayment.notes || 'No notes'}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground">Payment Proof</Label>
+                <div className="mt-2 text-sm">
+                   {selectedPayment.payment_proof ? (
+                    <div className="relative w-full h-64 bg-muted rounded-md overflow-hidden border">
+                      <img 
+                        src={selectedPayment.payment_proof} 
+                        alt="Payment Proof" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                   ) : (
+                     <div className="text-muted-foreground italic">No proof image available</div>
+                   )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+             <Button type="button" variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the payment record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

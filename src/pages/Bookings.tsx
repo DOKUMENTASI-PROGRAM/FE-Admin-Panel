@@ -23,6 +23,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -245,7 +256,7 @@ export default function BookingsPage() {
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.post(`/booking/${id}/confirm`);
+      return api.post(`/api/booking/${id}/confirm`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
@@ -263,7 +274,7 @@ export default function BookingsPage() {
   // Cancel booking - POST /api/booking/{id}/cancel
   const cancelMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.post(`/booking/${id}/cancel`);
+      return api.post(`/api/booking/${id}/cancel`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
@@ -280,7 +291,7 @@ export default function BookingsPage() {
 
   const assignSlotMutation = useMutation({
     mutationFn: ({ bookingId, slotId, scheduleId }: { bookingId: string, slotId: string, scheduleId: string }) => {
-      return api.post(`/booking/api/admin/bookings/${bookingId}/assign-slot`, { 
+      return api.post(`/api/booking/${bookingId}/assign-slot`, { 
         slot_id: slotId,
         schedule_id: scheduleId 
       });
@@ -439,35 +450,61 @@ export default function BookingsPage() {
                         >
                           <CheckCircle className="h-4 w-4 mr-1" /> Confirm
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => {
-                            if (confirm('Are you sure you want to cancel this booking?')) {
-                              cancelMutation.mutate(booking.id);
-                            }
-                          }}
-                          disabled={cancelMutation.isPending}
-                        >
-                          Cancel
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              disabled={cancelMutation.isPending}
+                            >
+                              Cancel
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently cancel the booking.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => cancelMutation.mutate(booking.id)} className="bg-red-600 hover:bg-red-700">
+                                Continue
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </>
                     )}
                     {booking.status === 'confirmed' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to cancel this confirmed booking?')) {
-                            cancelMutation.mutate(booking.id);
-                          }
-                        }}
-                        disabled={cancelMutation.isPending}
-                      >
-                        Cancel
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            disabled={cancelMutation.isPending}
+                          >
+                            Cancel
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently cancel this confirmed booking.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => cancelMutation.mutate(booking.id)} className="bg-red-600 hover:bg-red-700">
+                              Continue
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                   {/* Hidden for now - different flow logic
