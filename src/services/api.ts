@@ -1,23 +1,27 @@
 import axios from 'axios';
+import { supabase } from '@/lib/supabase';
 
 const api = axios.create({
   baseURL: 'https://api.shemamusic.my.id',
 });
 
-let isRefreshing = false;
-let failedQueue: Array<(token: string) => void> = [];
-
-const processQueue = (token: string) => {
-  failedQueue.forEach(prom => prom(token));
-  failedQueue = [];
-};
-
 // Request Interceptor - Add token to headers
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+api.interceptors.request.use(async (config) => {
+  // Always try to get the latest session from Supabase
+  // This handles auto-refresh if the token is about to expire
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Fallback to local storage if needed, or let it fail if no token
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      config.headers.Authorization = `Bearer ${storedToken}`;
+    }
   }
+  
   return config;
 });
 
@@ -28,42 +32,30 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve) => {
-          failedQueue.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            resolve(api(originalRequest));
-          });
-        });
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
 
       try {
-        const response = await axios.post(
-          'https://api.shemamusic.my.id/api/auth/refresh',
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          }
-        );
+        // Try to refresh the session using Supabase
+        const { data, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !data.session) {
+          throw new Error('Session expired');
+        }
 
-        const { token } = response.data.data;
+        const token = data.session.access_token;
+        
+        // Update local storage (optional as AuthService listener also does this, but good for immediate retry)
         localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-        processQueue(token);
-        isRefreshing = false;
-
+        
+        // Update header and retry request
         originalRequest.headers.Authorization = `Bearer ${token}`;
         return api(originalRequest);
+        
       } catch (err) {
-        failedQueue = [];
-        isRefreshing = false;
+        // Refresh failed, logout user
+        await supabase.auth.signOut();
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         window.location.href = '/login';
         return Promise.reject(err);

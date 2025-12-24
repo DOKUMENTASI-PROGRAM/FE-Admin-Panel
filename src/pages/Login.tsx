@@ -40,14 +40,9 @@ export default function Login() {
       });
 
       if (response.data.success) {
-        const { accessToken, refreshToken, user } = response.data.data;
+        const { accessToken, refreshToken } = response.data.data;
 
-        // 2. Store Tokens in Local Storage
-        localStorage.setItem('token', accessToken);
-        localStorage.setItem('refreshToken', refreshToken); // Store refresh token as well
-        localStorage.setItem('user', JSON.stringify(user));
-
-        // 3. Sync Session with Supabase Client (CRITICAL for RLS/Realtime)
+        // Sync Session with Supabase Client (This will trigger the listener in AuthService)
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
@@ -55,7 +50,20 @@ export default function Login() {
 
         if (sessionError) {
           console.error("Supabase Session Sync Error:", sessionError);
-           // You might want to handle this gracefully, but usually it shouldn't block login if backend check passed
+          // throw new Error("Failed to sync session"); 
+        }
+
+        // Get user details to save to local storage for immediate UI update
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const userData = {
+            id: user.id,
+            email: user.email,
+            name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Admin',
+            role: user.app_metadata?.role || 'Administrator' // Assuming app_metadata holds role or default to Administrator
+          };
+          localStorage.setItem('user', JSON.stringify(userData));
         }
 
         toast({

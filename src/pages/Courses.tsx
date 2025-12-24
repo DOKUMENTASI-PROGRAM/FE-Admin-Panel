@@ -48,6 +48,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 const updateCourseSchema = z.object({
   title: z.string().min(2, "Title is required"),
@@ -71,8 +72,10 @@ export default function CoursesPage() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   
-  const { data, isLoading, error } = useCourses();
+  const { data: coursesData, isLoading, error } = useCourses(page, limit);
   const { data: instructorsData } = useInstructors();
 
   const editForm = useForm<UpdateCourseFormValues>({
@@ -171,12 +174,13 @@ export default function CoursesPage() {
     }
   }
 
-  const instructors = instructorsData?.instructors || instructorsData || [];
+  const instructors = instructorsData?.data || [];
 
   if (isLoading) return <TableSkeleton columnCount={7} rowCount={10} />;
   if (error) return <div>Error loading courses</div>;
 
-  const courses = data || [];
+  const courses = coursesData?.data || [];
+  const totalCourses = coursesData?.total || 0;
 
   return (
     <div className="space-y-6">
@@ -246,6 +250,14 @@ export default function CoursesPage() {
             ))}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={totalCourses}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* View Course Dialog */}

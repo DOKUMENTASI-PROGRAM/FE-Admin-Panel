@@ -46,6 +46,7 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 const createUserSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -68,9 +69,11 @@ export default function UsersPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useUsers();
+  const { data, isLoading, error } = useUsers(page, limit);
 
   const createForm = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserSchema),
@@ -189,7 +192,7 @@ export default function UsersPage() {
   if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading users</div>;
 
-  const users = Array.isArray(data) ? data : [];
+  const users = data?.data || [];
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -357,6 +360,14 @@ export default function UsersPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={data?.total || 0}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* View User Dialog */}

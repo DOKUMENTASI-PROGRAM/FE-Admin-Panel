@@ -51,11 +51,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye, ZoomIn } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { useBookings, useUsers } from '@/hooks/useQueries';
+import { useBookings } from '@/hooks/useQueries';
 import { cn } from '@/lib/utils';
 import { uploadToStorage } from '@/lib/supabase';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 export default function PaymentsPage() {
   const { toast } = useToast();
@@ -69,6 +70,7 @@ export default function PaymentsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -84,14 +86,13 @@ export default function PaymentsPage() {
     payment_proof: '',
   });
 
-  // Fetch Bookings for auto-suggestion
-  const { data: bookingsData } = useBookings();
-  const { data: usersData = [] } = useUsers();
+  // Fetch Bookings for auto-suggestion - fetch more to ensure lookup works
+  const { data: bookingsData } = useBookings(1, 100);
 
     // Create unique list of confirmed students from bookings
     const students = useMemo(() => {
       // Handle both array and object response formats
-      const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
+      const bookings = bookingsData?.data || [];
       
       if (!bookings || !Array.isArray(bookings)) return [];
       
@@ -108,10 +109,27 @@ export default function PaymentsPage() {
       }));
     }, [bookingsData]);
 
+  // Create a map of ALL booking_id to student name for display purposes
+  const bookingNameMap = useMemo(() => {
+    const lookup: { [key: string]: string } = {};
+    const bookings = bookingsData?.data || [];
+    
+    if (bookings && Array.isArray(bookings)) {
+      bookings.forEach((b: any) => {
+        if (b.id) {
+          lookup[b.id] = b.applicant_full_name || b.user_id || '-';
+        }
+      });
+    }
+    return lookup;
+  }, [bookingsData]);
+
   // Fetch Payments
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const { data: paymentsResponse, isLoading } = useQuery({
-    queryKey: ['payments', search],
-    queryFn: () => paymentService.getPayments({ search }),
+    queryKey: ['payments', search, page, limit],
+    queryFn: () => paymentService.getPayments({ search, page, limit }),
   });
 
   const payments = paymentsResponse?.data?.payments || [];
@@ -316,21 +334,7 @@ export default function PaymentsPage() {
                 <TableRow key={payment.id}>
                   <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
                   <TableCell className="font-medium">
-                    {(() => {
-                      if (payment.student_name) return payment.student_name;
-                      if (payment.booking_id) {
-                        const rawBookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
-                        const booking = rawBookings.find((b: any) => b.id === payment.booking_id);
-                        if (booking) {
-                           if (booking.applicant_full_name) return booking.applicant_full_name;
-                           // Fallback to user data if available
-                           const user = usersData.find((u: any) => u.id === booking.user_id);
-                           if (user) return user.full_name || user.name || user.email;
-                           return booking.user_id; // Last resort fallback
-                        }
-                      }
-                      return students.find(s => s.id === payment.student_id)?.name || payment.student_id || '-';
-                    })()}
+                    {payment.student_name || (payment.booking_id ? bookingNameMap[payment.booking_id] : null) || payment.student_id || '-'}
                   </TableCell>
                   <TableCell className="capitalize">{payment.payment_type || (payment.payment_method === 'Initial Booking' ? 'Registration' : 'Monthly')}</TableCell>
                   <TableCell className="capitalize">{payment.payment_method.replace('_', ' ')}</TableCell>
@@ -361,6 +365,14 @@ export default function PaymentsPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={paymentsResponse?.data?.pagination?.total || paymentsResponse?.data?.total || paymentsResponse?.total || payments.length}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Add Dialog */}
@@ -671,20 +683,7 @@ export default function PaymentsPage() {
                 <div>
                   <Label className="text-muted-foreground">Student Name</Label>
                   <div className="font-medium">
-                    {(() => {
-                       if (selectedPayment.student_name) return selectedPayment.student_name;
-                       if (selectedPayment.booking_id) {
-                         const rawBookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
-                         const booking = rawBookings.find((b: any) => b.id === selectedPayment.booking_id);
-                         if (booking) {
-                            if (booking.applicant_full_name) return booking.applicant_full_name;
-                            const user = usersData.find((u: any) => u.id === booking.user_id);
-                            if (user) return user.full_name || user.name || user.email;
-                            return booking.user_id;
-                         }
-                       }
-                       return students.find(s => s.id === selectedPayment.student_id)?.name || selectedPayment.student_id || '-';
-                    })()}
+                    {selectedPayment.student_name || (selectedPayment.booking_id ? bookingNameMap[selectedPayment.booking_id] : null) || selectedPayment.student_id || '-'}
                   </div>
                 </div>
                 <div>
@@ -727,15 +726,24 @@ export default function PaymentsPage() {
                 <Label className="text-muted-foreground">Payment Proof</Label>
                 <div className="mt-2 text-sm">
                    {selectedPayment.payment_proof ? (
-                    <div className="relative w-full h-64 bg-muted rounded-md overflow-hidden border">
+                    <div 
+                      className="relative w-full h-64 bg-muted rounded-md overflow-hidden border cursor-pointer group"
+                      onClick={() => setIsImageZoomed(true)}
+                    >
                       <img 
                         src={selectedPayment.payment_proof} 
                         alt="Payment Proof" 
                         className="w-full h-full object-contain"
                       />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                    ) : (
                      <div className="text-muted-foreground italic">No proof image available</div>
+                   )}
+                   {selectedPayment.payment_proof && (
+                     <p className="text-xs text-muted-foreground text-center mt-1">Klik gambar untuk memperbesar</p>
                    )}
                 </div>
               </div>
@@ -763,6 +771,19 @@ export default function PaymentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Zoom Dialog */}
+      <Dialog open={isImageZoomed} onOpenChange={setIsImageZoomed}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-2 bg-black/90 border-none">
+          <div className="relative flex items-center justify-center">
+            <img 
+              src={selectedPayment?.payment_proof} 
+              alt="Payment Proof - Zoom" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

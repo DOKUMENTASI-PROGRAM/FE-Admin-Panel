@@ -39,6 +39,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 const roomSchema = z.object({
   name: z.string().min(2),
@@ -53,8 +54,10 @@ export default function RoomsPage() {
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
-  const { data, isLoading, error } = useRooms();
+  const { data: roomsData, isLoading, error } = useRooms(page, limit);
 
   const form = useForm<z.infer<typeof roomSchema>>({
     resolver: zodResolver(roomSchema),
@@ -168,7 +171,8 @@ export default function RoomsPage() {
   if (isLoading) return <TableSkeleton columnCount={4} rowCount={5} />;
   if (error) return <div>Error loading rooms</div>;
 
-  const rooms = data || [];
+  const rooms = roomsData?.data || [];
+  const totalRooms = roomsData?.total || 0;
 
   return (
     <div className="space-y-6">
@@ -281,6 +285,14 @@ export default function RoomsPage() {
             ))}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={totalRooms}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Edit Room Dialog */}

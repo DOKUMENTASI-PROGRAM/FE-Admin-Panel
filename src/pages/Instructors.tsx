@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useInstructors, queryKeys } from '@/hooks/useQueries';
+import { uploadToStorage } from '@/lib/supabase';
 import {
   Table,
   TableBody,
@@ -11,7 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Plus, Edit, Trash, Eye } from 'lucide-react';
+import { Plus, Edit, Trash, Eye, Upload, X, Loader2, Mail, Phone, MessageCircle, Calendar, Award } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,10 +46,10 @@ import {
 const instructorSchema = z.object({
   email: z.string().email("Invalid email address"),
   full_name: z.string().min(2, "Full name is required"),
-  phone_number: z.string().optional(),
   wa_number: z.string().optional(),
   bio: z.string().optional(),
   specialization: z.string().optional(),
+  photo_url: z.string().optional(),
 });
 
 type InstructorFormValues = z.infer<typeof instructorSchema>;
@@ -60,17 +63,26 @@ export default function InstructorsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useInstructors();
+  // Photo upload states
+  const [createPhotoPreview, setCreatePhotoPreview] = useState<string | null>(null);
+  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const { data, isLoading, error } = useInstructors(page, limit);
 
   const createForm = useForm<InstructorFormValues>({
     resolver: zodResolver(instructorSchema),
     defaultValues: {
       email: "",
       full_name: "",
-      phone_number: "",
       wa_number: "",
       bio: "",
       specialization: "",
+      photo_url: "",
     },
   });
 
@@ -78,22 +90,32 @@ export default function InstructorsPage() {
     resolver: zodResolver(instructorSchema.omit({ email: true })),
     defaultValues: {
       full_name: "",
-      phone_number: "",
       wa_number: "",
       bio: "",
       specialization: "",
+      photo_url: "",
     },
   });
 
   // Create instructor - POST /api/admin/instructor
   const createMutation = useMutation({
     mutationFn: (newInstructor: InstructorFormValues) => {
-      return api.post('/api/admin/instructor', newInstructor);
+      // Ensure payload matches the requested structure
+      return api.post('/api/admin/instructor', {
+        email: newInstructor.email,
+        full_name: newInstructor.full_name,
+        wa_number: newInstructor.wa_number,
+        bio: newInstructor.bio,
+        specialization: newInstructor.specialization,
+        photo_url: newInstructor.photo_url
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.instructors() });
       setIsCreateOpen(false);
       createForm.reset();
+      setCreatePhotoPreview(null);
+      if (createFileInputRef.current) createFileInputRef.current.value = '';
       toast({ title: "Success", description: "Instructor created successfully" });
     },
     onError: (error: any) => {
@@ -115,6 +137,8 @@ export default function InstructorsPage() {
       setIsEditOpen(false);
       setSelectedInstructor(null);
       editForm.reset();
+      setEditPhotoPreview(null);
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
       toast({ title: "Success", description: "Instructor updated successfully" });
     },
     onError: (error: any) => {
@@ -150,11 +174,12 @@ export default function InstructorsPage() {
     setSelectedInstructor(instructor);
     editForm.reset({
       full_name: instructor.full_name || "",
-      phone_number: instructor.phone_number || "",
       wa_number: instructor.wa_number || "",
       bio: instructor.bio || "",
       specialization: instructor.specialization || "",
+      photo_url: instructor.photo_url || "",
     });
+    setEditPhotoPreview(instructor.photo_url || null);
     setIsEditOpen(true);
   };
 
@@ -181,10 +206,94 @@ export default function InstructorsPage() {
     }
   }
 
+  const handlePhotoSelect = async (event: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Invalid file format. Use JPEG, PNG, WebP, or GIF."
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "File size must be less than 5MB."
+      });
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (isEdit) {
+        setEditPhotoPreview(e.target?.result as string);
+      } else {
+        setCreatePhotoPreview(e.target?.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to Supabase
+    try {
+      setIsUploading(true);
+      const photoUrl = await uploadToStorage(file);
+
+      if (isEdit) {
+        editForm.setValue('photo_url', photoUrl);
+      } else {
+        createForm.setValue('photo_url', photoUrl);
+      }
+
+      toast({
+        title: "Success",
+        description: "Photo uploaded successfully"
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to upload photo"
+      });
+      // Reset preview on error
+      if (isEdit) {
+        setEditPhotoPreview(null);
+      } else {
+        setCreatePhotoPreview(null);
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemovePhoto = (isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditPhotoPreview(null);
+      editForm.setValue('photo_url', '');
+      if (editFileInputRef.current) {
+        editFileInputRef.current.value = '';
+      }
+    } else {
+      setCreatePhotoPreview(null);
+      createForm.setValue('photo_url', '');
+      if (createFileInputRef.current) {
+        createFileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading instructors</div>;
 
-  const instructors = data?.instructors || data || [];
+  const instructors = data?.data || [];
 
   // Transform instructors data - handle both string and object formats
   const transformedInstructors = Array.isArray(instructors) 
@@ -195,10 +304,10 @@ export default function InstructorsPage() {
             user_id: `instructor-${index}`,
             full_name: instructor,
             email: '-',
-            phone_number: '-',
             wa_number: '-',
             bio: '-',
-            specialization: '-'
+            specialization: '-',
+            photo_url: '-',
           };
         }
         return instructor;
@@ -252,34 +361,21 @@ export default function InstructorsPage() {
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="phone_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+628123456789" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="wa_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>WhatsApp Number</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+628123456789" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                
+                <FormField
+                  control={createForm.control}
+                  name="wa_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>WhatsApp Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+628123456789" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
                 <FormField
                   control={createForm.control}
                   name="specialization"
@@ -306,6 +402,65 @@ export default function InstructorsPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={createForm.control}
+                  name="photo_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Photo</FormLabel>
+                      <FormControl>
+                        <div className="space-y-4">
+                          <Input
+                            type="hidden"
+                            {...field}
+                          />
+                          <div className="flex items-center gap-4">
+                            {createPhotoPreview ? (
+                              <div className="relative w-24 h-24">
+                                <img
+                                  src={createPhotoPreview}
+                                  alt="Preview"
+                                  className="w-full h-full object-cover rounded-full border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePhoto(false)}
+                                  className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 transition-colors"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center bg-muted/50 text-muted-foreground">
+                                <Upload className="h-8 w-8 opacity-50" />
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <Input
+                                ref={createFileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                onChange={(e) => handlePhotoSelect(e, false)}
+                                disabled={isUploading}
+                                className="cursor-pointer"
+                              />
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Max size 5MB. Supported formats: JPG, PNG, WebP, GIF.
+                              </p>
+                            </div>
+                          </div>
+                          {isUploading && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Uploading...
+                            </div>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
                     Cancel
@@ -327,7 +482,7 @@ export default function InstructorsPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
+              <TableHead>WhatsApp</TableHead>
               <TableHead>Specialization</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -338,7 +493,7 @@ export default function InstructorsPage() {
                 <TableRow key={instructor.user_id || instructor.id}>
                   <TableCell className="font-medium">{instructor.full_name}</TableCell>
                   <TableCell>{instructor.email || '-'}</TableCell>
-                  <TableCell>{instructor.phone_number || instructor.wa_number || '-'}</TableCell>
+                  <TableCell>{instructor.wa_number || '-'}</TableCell>
                   <TableCell>{instructor.specialization || '-'}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button 
@@ -378,54 +533,93 @@ export default function InstructorsPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={data?.total || 0}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
-      {/* View Instructor Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Instructor Details</DialogTitle>
           </DialogHeader>
           {selectedInstructor && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Full Name</label>
-                  <p className="text-sm">{selectedInstructor.full_name || '-'}</p>
+            <div className="space-y-6">
+                {/* Header Section */}
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="relative">
+                    {selectedInstructor.photo_url ? (
+                      <img 
+                        src={selectedInstructor.photo_url} 
+                        alt={selectedInstructor.full_name} 
+                        className="w-32 h-32 object-cover rounded-full border-4 border-background shadow-lg"
+                      />
+                    ) : (
+                      <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center border-4 border-background shadow-lg">
+                        <span className="text-4xl text-muted-foreground font-semibold">
+                          {selectedInstructor.full_name?.charAt(0) || '?'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-bold">{selectedInstructor.full_name}</h3>
+                    <Badge variant="secondary" className="px-3 py-1 text-base">
+                      {selectedInstructor.specialization || 'General Instructor'}
+                    </Badge>
+                  </div>
                 </div>
+
+                <div className="h-px bg-border w-full" />
+
+                {/* Contact Information */}
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Email</label>
-                  <p className="text-sm">{selectedInstructor.email || '-'}</p>
+                  <h3 className="font-semibold text-lg border-b pb-2 mb-3">Contact Information</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Email</label>
+                      <p className="text-sm">{selectedInstructor.email || '-'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">WhatsApp</label>
+                      <p className="text-sm">{selectedInstructor.wa_number || '-'}</p>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Additional Info */}
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Phone Number</label>
-                  <p className="text-sm">{selectedInstructor.phone_number || '-'}</p>
+                  <h3 className="font-semibold text-lg border-b pb-2 mb-3">Additional Info</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Bio</label>
+                      <p className="text-sm leading-relaxed text-foreground/90">
+                        {selectedInstructor.bio || 'No bio available.'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Joined</label>
+                      <p className="text-sm">
+                        {selectedInstructor.created_at 
+                          ? new Date(selectedInstructor.created_at).toLocaleDateString("en-US", {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            }) 
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">WhatsApp</label>
-                  <p className="text-sm">{selectedInstructor.wa_number || '-'}</p>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Specialization</label>
-                <p className="text-sm">{selectedInstructor.specialization || '-'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Bio</label>
-                <p className="text-sm">{selectedInstructor.bio || '-'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Created At</label>
-                <p className="text-sm">
-                  {selectedInstructor.created_at 
-                    ? new Date(selectedInstructor.created_at).toLocaleDateString() 
-                    : '-'}
-                </p>
-              </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsViewOpen(false)}>
+            <Button onClick={() => setIsViewOpen(false)}>
               Close
             </Button>
           </DialogFooter>
@@ -456,20 +650,6 @@ export default function InstructorsPage() {
                   </FormItem>
                 )}
               />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="phone_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={editForm.control}
                   name="wa_number"
@@ -483,7 +663,6 @@ export default function InstructorsPage() {
                     </FormItem>
                   )}
                 />
-              </div>
               <FormField
                 control={editForm.control}
                 name="specialization"
@@ -505,6 +684,65 @@ export default function InstructorsPage() {
                     <FormLabel>Bio</FormLabel>
                     <FormControl>
                       <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="photo_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photo</FormLabel>
+                    <FormControl>
+                      <div className="space-y-4">
+                        <Input
+                          type="hidden"
+                          {...field}
+                        />
+                        <div className="flex items-center gap-4">
+                          {editPhotoPreview ? (
+                            <div className="relative w-24 h-24">
+                              <img
+                                src={editPhotoPreview}
+                                alt="Preview"
+                                className="w-full h-full object-cover rounded-full border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePhoto(true)}
+                                className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90 transition-colors"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center bg-muted/50 text-muted-foreground">
+                              <Upload className="h-8 w-8 opacity-50" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <Input
+                              ref={editFileInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              onChange={(e) => handlePhotoSelect(e, true)}
+                              disabled={isUploading}
+                              className="cursor-pointer"
+                            />
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Max size 5MB. Supported formats: JPG, PNG, WebP, GIF.
+                            </p>
+                          </div>
+                        </div>
+                        {isUploading && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Uploading...
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

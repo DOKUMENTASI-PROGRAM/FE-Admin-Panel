@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import { useStudents, useCourses, useSchedules, useBookings, useUsers, queryKeys } from '@/hooks/useQueries';
+import { useStudents, useCourses, useSchedules, useBookings, useUsers, useStudent, queryKeys } from '@/hooks/useQueries';
 import { uploadToStorage } from '@/lib/supabase';
 import {
   Table,
@@ -48,6 +48,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 const DAYS_OF_WEEK = [
   { value: 'monday', label: 'Senin' },
@@ -162,17 +163,22 @@ export default function StudentsPage() {
 
   // Existing hooks
   const { isLoading: isStudentsLoading, error: studentsError } = useStudents();
-  const { data: coursesData = [] } = useCourses();
-  const { data: schedulesData = [] } = useSchedules();
+  const { data: coursesData } = useCourses();
+  const { data: schedulesData } = useSchedules();
   
   // New hooks for table data
-  const { data: bookingsData, isLoading: isBookingsLoading, error: bookingsError } = useBookings();
-  const { data: usersData = [] } = useUsers();
+  // For Students page, we need ALL bookings to filter confirmed ones, so use high limit
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const { data: bookingsData, isLoading: isBookingsLoading, error: bookingsError } = useBookings(1, 1000); // Fetch all bookings
+  const { data: usersData } = useUsers();
+  const { data: studentDetail, isLoading: isStudentDetailLoading } = useStudent(selectedStudent?.id);
 
   // Maps for table display
   const studentMap = useMemo(() => {
     const lookup: { [key: string]: any } = {};
-    usersData.forEach((user: any) => {
+    const users = usersData?.data || [];
+    users.forEach((user: any) => {
       if (user && user.id) {
         lookup[user.id] = user;
       }
@@ -182,11 +188,14 @@ export default function StudentsPage() {
 
   const courseMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
-    coursesData.forEach((course: any) => {
-      if (course && course.id) {
-        lookup[course.id] = course.title || course.name || course.id;
-      }
-    });
+    const courses = coursesData?.data || coursesData || [];
+    if (Array.isArray(courses)) {
+      courses.forEach((course: any) => {
+        if (course && course.id) {
+          lookup[course.id] = course.title || course.name || course.id;
+        }
+      });
+    }
     return lookup;
   }, [coursesData]);
 
@@ -215,8 +224,9 @@ export default function StudentsPage() {
       }
     };
     
-    if (Array.isArray(schedulesData)) {
-      schedulesData.forEach((schedule: any) => {
+    const schedules = schedulesData?.data || [];
+    if (Array.isArray(schedules)) {
+      schedules.forEach((schedule: any) => {
         const nestedSlots = schedule.slots || schedule.schedule || schedule.timings;
         if (Array.isArray(nestedSlots)) {
           nestedSlots.forEach((slot: any) => {
@@ -253,9 +263,12 @@ export default function StudentsPage() {
   }, [schedulesData]);
 
   // Filter confirmed bookings
+  // Note: useBookings hook already normalizes response to { data: [...], total: N }
   const confirmedBookings = useMemo(() => {
-    const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.bookings || []);
-    return bookings.filter((b: any) => b.status === 'confirmed');
+    const bookings = bookingsData?.data || [];
+    return Array.isArray(bookings) 
+      ? bookings.filter((b: any) => b.status?.toLowerCase() === 'confirmed')
+      : [];
   }, [bookingsData]);
 
   // Helper to get slot text
@@ -267,7 +280,7 @@ export default function StudentsPage() {
 
   // Build slots map based on selected course
   const availableSlots = useMemo(() => {
-    if (!selectedCourseId || !schedulesData || schedulesData.length === 0) {
+    if (!selectedCourseId || !schedulesData?.data || schedulesData.data.length === 0) {
       return [];
     }
 
@@ -293,8 +306,8 @@ export default function StudentsPage() {
       }
     };
 
-    const courseSchedules = Array.isArray(schedulesData)
-      ? schedulesData.filter((schedule: any) => schedule.course_id === selectedCourseId)
+    const courseSchedules = schedulesData?.data
+      ? schedulesData.data.filter((schedule: any) => schedule.course_id === selectedCourseId)
       : [];
 
     const slots: any[] = [];
@@ -1220,6 +1233,15 @@ export default function StudentsPage() {
             )}
           </TableBody>
         </Table>
+        
+        <PaginationControls
+          currentPage={page}
+          totalCount={confirmedBookings.length}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isBookingsLoading}
+        />
       </div>
 
       {/* View Student Dialog */}
@@ -1336,16 +1358,16 @@ export default function StudentsPage() {
                   <div>
                     <label className="text-sm font-medium text-gray-500">Dibuat</label>
                     <p className="text-sm">
-                      {selectedStudent.created_at 
-                        ? new Date(selectedStudent.created_at).toLocaleString('id-ID') 
+                      {(studentDetail?.created_at || selectedStudent.created_at)
+                        ? new Date(studentDetail?.created_at || selectedStudent.created_at).toLocaleString('id-ID')
                         : '-'}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Diperbarui</label>
                     <p className="text-sm">
-                      {selectedStudent.updated_at 
-                        ? new Date(selectedStudent.updated_at).toLocaleString('id-ID') 
+                      {(studentDetail?.updated_at || selectedStudent.updated_at)
+                        ? new Date(studentDetail?.updated_at || selectedStudent.updated_at).toLocaleString('id-ID')
                         : '-'}
                     </p>
                   </div>
@@ -1353,10 +1375,10 @@ export default function StudentsPage() {
               </div>
 
               {/* Catatan */}
-              {selectedStudent.notes && (
+              {(studentDetail?.notes || selectedStudent.notes) && (
                 <div>
                   <h3 className="font-semibold text-lg border-b pb-2 mb-3">Catatan</h3>
-                  <p className="text-sm">{selectedStudent.notes}</p>
+                  <p className="text-sm">{studentDetail?.notes || selectedStudent.notes}</p>
                 </div>
               )}
             </div>

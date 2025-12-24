@@ -12,7 +12,7 @@ const buildQueryParams = (params: PaymentFilterParams) => {
   return query.toString();
 };
 
-const getPayments = async (params: PaymentFilterParams = {}) => {
+const getPayments = async (params: PaymentFilterParams & { page?: number, limit?: number } = {}) => {
   const queryString = buildQueryParams(params);
   const endpoint = queryString 
     ? `/api/admin/payments?${queryString}` 

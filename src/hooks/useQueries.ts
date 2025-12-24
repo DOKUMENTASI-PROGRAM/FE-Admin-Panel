@@ -20,16 +20,22 @@ export const queryKeys = {
 /**
  * Fetch users - reusable across all pages
  */
-export function useUsers() {
+export function useUsers(page?: number, limit?: number) {
   return useQuery({
-    queryKey: queryKeys.users(),
+    queryKey: page ? [...queryKeys.users(), page, limit] : queryKeys.users(),
     queryFn: async () => {
-      const res = await api.get('/api/admin/users');
-      let users = res.data.data || [];
-      if (!Array.isArray(users)) {
-        users = [];
+      const url = page ? `/api/admin/users?page=${page}&limit=${limit}` : '/api/admin/users';
+      const res = await api.get(url);
+      const raw = res.data.data || [];
+      
+      // Handle paginated response
+      if (raw && !Array.isArray(raw) && raw.users) {
+           return { data: raw.users, total: raw.total || 0 };
       }
-      return users;
+      
+      // Handle array response (fallback/non-paginated)
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: list.length };
     },
   });
 }
@@ -42,8 +48,33 @@ export function useStudents(page = 1, limit = 10) {
     queryKey: [...queryKeys.students(), page, limit],
     queryFn: async () => {
       const res = await api.get(`/api/admin/students?page=${page}&limit=${limit}`);
+      const raw = res.data.data;
+      // Check for total at multiple levels including pagination object
+      const totalFromRoot = res.data.total;
+      const totalFromPagination = raw?.pagination?.total;
+      
+      if (raw && !Array.isArray(raw) && raw.students) {
+        return { data: raw.students, total: totalFromPagination || raw.total || totalFromRoot || 0 };
+      }
+      
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: totalFromPagination || totalFromRoot || list.length };
+    },
+  });
+}
+
+/**
+ * Fetch one student by ID
+ */
+export function useStudent(id: string | null | undefined) {
+  return useQuery({
+    queryKey: [...queryKeys.students(), id],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await api.get(`/api/admin/students/${id}`);
       return res.data.data;
     },
+    enabled: !!id,
   });
 }
 
@@ -56,18 +87,19 @@ export function useInstructors(page = 1, limit = 10) {
     queryKey: [...queryKeys.instructors(), page, limit],
     queryFn: async () => {
       const res = await api.get(`/api/admin/instructor?page=${page}&limit=${limit}`);
-      const data = res.data.data;
-      // Handle different response structures:
-      // - If data is an array, return it directly
-      // - If data has an 'instructors' property (paginated response), return that array
-      // - Otherwise return empty array
-      if (Array.isArray(data)) {
-        return data;
+      const raw = res.data.data;
+      // Check for total at multiple levels including pagination object
+      const totalFromRoot = res.data.total;
+      const totalFromPagination = raw?.pagination?.total;
+
+      // Handle nested instructors object: { data: { instructors: [], pagination: { total: N } } }
+      if (raw && !Array.isArray(raw) && raw.instructors) {
+        return { data: raw.instructors, total: totalFromPagination || raw.total || totalFromRoot || 0 };
       }
-      if (data && Array.isArray(data.instructors)) {
-        return data.instructors;
-      }
-      return [];
+
+      // Handle direct array response
+      const list = Array.isArray(raw) ? raw : (Array.isArray(res.data) ? res.data : []);
+      return { data: list, total: totalFromPagination || totalFromRoot || list.length };
     },
   });
 }
@@ -75,16 +107,22 @@ export function useInstructors(page = 1, limit = 10) {
 /**
  * Fetch courses - reusable across all pages
  */
-export function useCourses() {
+export function useCourses(page?: number, limit?: number) {
   return useQuery({
-    queryKey: queryKeys.courses(),
+    queryKey: page ? [...queryKeys.courses(), page, limit] : queryKeys.courses(),
     queryFn: async () => {
-      const res = await api.get('/api/admin/courses');
-      let courses = res.data.data || [];
-      if (!Array.isArray(courses)) {
-        courses = [];
+      const url = page ? `/api/admin/courses?page=${page}&limit=${limit}` : '/api/admin/courses';
+      const res = await api.get(url);
+      const raw = res.data.data;
+
+      // Handle paginated response
+      if (raw && !Array.isArray(raw) && raw.courses) {
+        return { data: raw.courses, total: raw.total || 0 };
       }
-      return courses;
+
+      // Handle array response (fallback/non-paginated)
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: list.length };
     },
   });
 }
@@ -92,12 +130,23 @@ export function useCourses() {
 /**
  * Fetch bookings - reusable across all pages
  */
-export function useBookings() {
+export function useBookings(page = 1, limit = 10) {
   return useQuery({
-    queryKey: queryKeys.bookings(),
+    queryKey: [...queryKeys.bookings(), page, limit],
     queryFn: async () => {
-      const res = await api.get('/api/admin/bookings');
-      return res.data.data;
+      const res = await api.get(`/api/admin/bookings?page=${page}&limit=${limit}`);
+      const raw = res.data.data;
+      // Check for total at multiple levels including pagination object
+      const totalFromRoot = res.data.total;
+      const totalFromPagination = raw?.pagination?.total;
+
+      // Handle nested bookings object: { data: { bookings: [], pagination: { total: N } } }
+      if (raw && !Array.isArray(raw) && raw.bookings) {
+        return { data: raw.bookings, total: totalFromPagination || raw.total || totalFromRoot || 0 };
+      }
+
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: totalFromPagination || totalFromRoot || list.length };
     },
   });
 }
@@ -105,12 +154,24 @@ export function useBookings() {
 /**
  * Fetch rooms - reusable across all pages
  */
-export function useRooms() {
+export function useRooms(page?: number, limit?: number) {
   return useQuery({
-    queryKey: queryKeys.rooms(),
+    queryKey: page ? [...queryKeys.rooms(), page, limit] : queryKeys.rooms(),
     queryFn: async () => {
-      const res = await api.get('/api/admin/rooms');
-      return res.data.data;
+      const url = page ? `/api/admin/rooms?page=${page}&limit=${limit}` : '/api/admin/rooms';
+      const res = await api.get(url);
+      const raw = res.data.data;
+      // Check for total at multiple levels
+      const totalFromRoot = res.data.total;
+
+      // Handle paginated response
+      if (raw && !Array.isArray(raw) && raw.rooms) {
+        return { data: raw.rooms, total: raw.total || totalFromRoot || 0 };
+      }
+
+      // Handle array response (fallback/non-paginated)
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: totalFromRoot || list.length };
     },
   });
 }
@@ -118,12 +179,19 @@ export function useRooms() {
 /**
  * Fetch schedules - reusable across all pages
  */
-export function useSchedules() {
+export function useSchedules(page = 1, limit = 10) {
   return useQuery({
-    queryKey: queryKeys.schedules(),
+    queryKey: [...queryKeys.schedules(), page, limit],
     queryFn: async () => {
-      const res = await api.get('/api/admin/schedules');
-      return res.data.data;
+      const res = await api.get(`/api/admin/schedules?page=${page}&limit=${limit}`);
+      const raw = res.data.data;
+
+      if (raw && !Array.isArray(raw) && (raw.schedules || raw.data)) {
+        return { data: raw.schedules || raw.data, total: raw.total || 0 };
+      }
+
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: list.length };
     },
   });
 }

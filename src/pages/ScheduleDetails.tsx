@@ -178,9 +178,9 @@ export default function ScheduleDetailsPage() {
     }
   }
 
-  const courses = coursesData || [];
-  const instructors = instructorsData?.instructors || instructorsData || [];
-  const rooms = roomsData || [];
+  const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
+  const instructors = instructorsData?.instructors || (Array.isArray(instructorsData) ? instructorsData : (instructorsData?.data || []));
+  const rooms = Array.isArray(roomsData) ? roomsData : (roomsData?.data || []);
 
   const courseMap: { [key: string]: string } = {};
   courses.forEach((course: any) => {

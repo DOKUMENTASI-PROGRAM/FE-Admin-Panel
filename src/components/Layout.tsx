@@ -51,19 +51,45 @@ export default function Layout() {
   });
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setEditForm({
-          name: parsedUser.name || '',
-          email: parsedUser.email || '',
-        });
-      } catch (e) {
-        console.error("Failed to parse user from local storage", e);
+    const initializeUser = async () => {
+      // 1. Try to get from local storage first for immediate render
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setEditForm({
+            name: parsedUser.name || '',
+            email: parsedUser.email || '',
+          });
+        } catch (e) {
+          console.error("Failed to parse user from local storage", e);
+        }
       }
-    }
+
+      // 2. Also fetch fresh data from Supabase to ensure it's up to date
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (authUser) {
+        const userData = {
+          id: authUser.id,
+          email: authUser.email,
+          // Prioritize metadata name, then existing local name, then email part
+          name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Admin',
+          role: authUser.app_metadata?.role || 'Administrator'
+        };
+
+        // Update state and local storage if different (or just always update to be safe)
+        setUser(userData);
+        setEditForm({
+          name: userData.name || '',
+          email: userData.email || '',
+        });
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+    };
+
+    initializeUser();
   }, []);
 
   const handleUpdateProfile = async () => {

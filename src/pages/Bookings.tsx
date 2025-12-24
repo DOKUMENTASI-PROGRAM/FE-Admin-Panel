@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import { useBookings, useUsers, useCourses, useSchedules, queryKeys } from '@/hooks/useQueries';
+import { useBookings, useUsers, useCourses, useSchedules, useInstructors, queryKeys } from '@/hooks/useQueries';
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Eye, ZoomIn } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 export default function BookingsPage() {
   const { toast } = useToast();
@@ -49,31 +50,42 @@ export default function BookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailBooking, setDetailBooking] = useState<any>(null);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
 
   // Use custom hooks to fetch data with proper caching
-  const { data, isLoading, error } = useBookings();
-  const { data: usersData = [] } = useUsers();
-  const { data: coursesData = [] } = useCourses();
-  const { data: schedulesData = [] } = useSchedules();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const { data, isLoading, error } = useBookings(page, limit);
+  // Default to undefined or handle null checks downstream, do not default to [] as it breaks type for object response
+  const { data: usersData } = useUsers();
+  const { data: coursesData } = useCourses();
+  const { data: schedulesData } = useSchedules();
+  const { data: instructorsData } = useInstructors();
 
   // Build lookup maps from query data
   const studentMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
-    usersData.forEach((user: any) => {
-      if (user && user.id) {
-        lookup[user.id] = user.full_name || user.name || user.email || user.id;
-      }
-    });
+    if (usersData?.data && Array.isArray(usersData.data)) {
+      usersData.data.forEach((user: any) => {
+        if (user && user.id) {
+          lookup[user.id] = user.full_name || user.name || user.email || user.id;
+        }
+      });
+    }
     return lookup;
   }, [usersData]);
 
   const schoolMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
-    usersData.forEach((user: any) => {
-      if (user && user.id) {
-        lookup[user.id] = user.school || '-';
-      }
-    });
+    if (usersData?.data && Array.isArray(usersData.data)) {
+        usersData.data.forEach((user: any) => {
+        if (user && user.id) {
+            lookup[user.id] = user.school || '-';
+        }
+        });
+    }
     return lookup;
   }, [usersData]);
 
@@ -104,8 +116,11 @@ export default function BookingsPage() {
       }
     };
     
-    if (Array.isArray(schedulesData)) {
-      schedulesData.forEach((schedule: any) => {
+    // Handle both array and paginated response for schedules
+    const schedules = schedulesData?.data || schedulesData || [];
+    
+    if (Array.isArray(schedules)) {
+      schedules.forEach((schedule: any) => {
         // Handle nested slots array structure
         const nestedSlots = schedule.slots || schedule.schedule || schedule.timings;
         if (Array.isArray(nestedSlots)) {
@@ -147,17 +162,34 @@ export default function BookingsPage() {
 
   const courseMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
-    coursesData.forEach((course: any) => {
-      if (course && course.id) {
-        lookup[course.id] = course.title || course.name || course.id;
-      }
-    });
+    const courses = coursesData?.data || coursesData || [];
+    if (Array.isArray(courses)) {
+      courses.forEach((course: any) => {
+        if (course && course.id) {
+          lookup[course.id] = course.title || course.name || course.id;
+        }
+      });
+    }
     return lookup;
   }, [coursesData]);
 
+  // Build instructor lookup map
+  const instructorMap = useMemo(() => {
+    const lookup: { [key: string]: string } = {};
+    const instructors = instructorsData?.data || instructorsData || [];
+    if (Array.isArray(instructors)) {
+      instructors.forEach((instructor: any) => {
+        if (instructor && instructor.id) {
+          lookup[instructor.id] = instructor.full_name || instructor.name || instructor.email || instructor.id;
+        }
+      });
+    }
+    return lookup;
+  }, [instructorsData]);
+
   // Get available slots from schedules based on selected booking
   const slots = useMemo(() => {
-    if (!selectedBooking || !schedulesData || schedulesData.length === 0) {
+    if (!selectedBooking || !schedulesData || (schedulesData.data && schedulesData.data.length === 0)) {
       return [];
     }
 
@@ -165,8 +197,9 @@ export default function BookingsPage() {
     console.log('All Schedules Data:', schedulesData);
 
     // Find schedules that match the booking's course
-    const courseSchedules = Array.isArray(schedulesData) 
-      ? schedulesData.filter((schedule: any) => schedule.course_id === selectedBooking.course_id)
+    const schedules = schedulesData?.data || schedulesData || [];
+    const courseSchedules = Array.isArray(schedules) 
+      ? schedules.filter((schedule: any) => schedule.course_id === selectedBooking.course_id)
       : [];
 
     console.log('Filtered Course Schedules:', courseSchedules);
@@ -335,15 +368,23 @@ export default function BookingsPage() {
   if (isLoading) return <TableSkeleton columnCount={8} rowCount={10} />;
   if (error) return <div>Error loading bookings</div>;
 
-  const bookings = Array.isArray(data) ? data : (data?.bookings || []);
+  const bookings = data?.data || [];
   
   console.log('Bookings data:', bookings);
   console.log('Student map:', studentMap);
   console.log('Course map:', courseMap);
   console.log('Schedules data:', schedulesData);
 
+
+
   // Helper function to get first choice slot from booking
   const getFirstChoiceSlot = (booking: any): string => {
+    // Check if first_preference is an object with day/time info
+    if (booking.first_preference && typeof booking.first_preference === 'object') {
+      const pref = booking.first_preference;
+      return `${pref.day || 'TBD'} ${pref.start_time || ''} - ${pref.end_time || ''}`;
+    }
+    
     // Try different possible field names for first choice slot
     const slotId = booking.first_choice_slot_id 
       || booking.first_preference_slot_id 
@@ -351,25 +392,23 @@ export default function BookingsPage() {
       || booking.slot_preferences?.[0]?.id
       || booking.preferences?.first_slot_id
       || booking.first_slot_id
-      || booking.schedule_id; // fallback to schedule_id if only one slot assigned
+      || booking.schedule_id;
     
     if (slotId && slotsMap[slotId]) {
       return slotsMap[slotId];
     }
-    
-    // Try to display slot preference text directly if available
-    const prefText = booking.first_preference 
-      || booking.slot_preferences?.[0]?.day_time
-      || booking.slot_preferences?.[0]?.display_text
-      || booking.preferences?.first;
-    
-    if (prefText) return prefText;
     
     return '-';
   };
 
   // Helper function to get second choice slot from booking
   const getSecondChoiceSlot = (booking: any): string => {
+    // Check if second_preference is an object with day/time info
+    if (booking.second_preference && typeof booking.second_preference === 'object') {
+      const pref = booking.second_preference;
+      return `${pref.day || 'TBD'} ${pref.start_time || ''} - ${pref.end_time || ''}`;
+    }
+    
     // Try different possible field names for second choice slot
     const slotId = booking.second_choice_slot_id 
       || booking.second_preference_slot_id 
@@ -381,14 +420,6 @@ export default function BookingsPage() {
     if (slotId && slotsMap[slotId]) {
       return slotsMap[slotId];
     }
-    
-    // Try to display slot preference text directly if available
-    const prefText = booking.second_preference 
-      || booking.slot_preferences?.[1]?.day_time
-      || booking.slot_preferences?.[1]?.display_text
-      || booking.preferences?.second;
-    
-    if (prefText) return prefText;
     
     return '-';
   };
@@ -423,7 +454,7 @@ export default function BookingsPage() {
                   {booking.applicant_school || schoolMap[booking.user_id] || '-'}
                 </TableCell>
                 <TableCell>
-                  {courseMap[booking.course_id] || booking.course_id}
+                  {booking.courses?.title || courseMap[booking.course_id] || booking.course_id}
                 </TableCell>
                 <TableCell>
                   {getFirstChoiceSlot(booking)}
@@ -433,12 +464,26 @@ export default function BookingsPage() {
                 </TableCell>
                 <TableCell>{new Date(booking.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                    ${booking.status === 'confirmed' ? 'bg-green-100 text-green-800' : 
+                      booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                      booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'}`}>
                     {booking.status}
-                  </Badge>
+                  </span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setDetailBooking(booking);
+                        setIsDetailOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1" /> Detail
+                    </Button>
                     {booking.status === 'pending' && (
                       <>
                         <Button 
@@ -524,6 +569,14 @@ export default function BookingsPage() {
             ))}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={data?.total || 0}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
       <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
@@ -570,6 +623,120 @@ export default function BookingsPage() {
               {assignSlotMutation.isPending ? "Assigning..." : "Assign Slot"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Booking Detail</DialogTitle>
+            <DialogDescription>
+              Detail informasi booking untuk {detailBooking?.applicant_full_name || studentMap[detailBooking?.user_id] || detailBooking?.user_id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Nama</Label>
+                <p className="font-medium">{detailBooking?.applicant_full_name || studentMap[detailBooking?.user_id] || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Asal Sekolah</Label>
+                <p className="font-medium">{detailBooking?.applicant_school || schoolMap[detailBooking?.user_id] || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Kursus</Label>
+                <p className="font-medium">{detailBooking?.courses?.title || courseMap[detailBooking?.course_id] || detailBooking?.course_id || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Status</Label>
+                <Badge variant={detailBooking?.status === 'confirmed' ? 'default' : 'secondary'}>
+                  {detailBooking?.status || '-'}
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Pilihan Slot Pertama</Label>
+                <p className="font-medium">{detailBooking ? getFirstChoiceSlot(detailBooking) : '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Pilihan Slot Kedua</Label>
+                <p className="font-medium">{detailBooking ? getSecondChoiceSlot(detailBooking) : '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Instruktur Pilihan</Label>
+                <p className="font-medium">
+                  {(() => {
+                    // Try to get instructor ID from various sources
+                    const instructorId = detailBooking?.first_preference?.instructor_id 
+                      || detailBooking?.second_preference?.instructor_id
+                      || detailBooking?.preferred_instructor_id;
+                    
+                    // If we have an instructor ID, look up the name
+                    if (instructorId && instructorMap[instructorId]) {
+                      return instructorMap[instructorId];
+                    }
+                    
+                    // Fallback to name fields if available
+                    return detailBooking?.first_preference?.instructor_name 
+                      || detailBooking?.second_preference?.instructor_name
+                      || detailBooking?.preferred_instructor_name 
+                      || (instructorId ? instructorId : '-');
+                  })()}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Tanggal Booking</Label>
+                <p className="font-medium">{detailBooking?.created_at ? new Date(detailBooking.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Email</Label>
+                <p className="font-medium">{detailBooking?.applicant_email || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">No. WhatsApp</Label>
+                <p className="font-medium">{detailBooking?.applicant_wa_number || '-'}</p>
+              </div>
+            </div>
+            {/* Bukti Pembayaran */}
+            {detailBooking?.payment_proof && (
+              <div className="space-y-2 mt-4 pt-4 border-t">
+                <Label className="text-sm text-muted-foreground">Bukti Pembayaran</Label>
+                <div 
+                  className="rounded-lg overflow-hidden border cursor-pointer relative group"
+                  onClick={() => setIsImageZoomed(true)}
+                >
+                  <img 
+                    src={detailBooking.payment_proof} 
+                    alt="Bukti Pembayaran" 
+                    className="w-full max-h-64 object-contain bg-gray-50"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">Klik gambar untuk memperbesar</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
+              Tutup
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Zoom Dialog */}
+      <Dialog open={isImageZoomed} onOpenChange={setIsImageZoomed}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-2 bg-black/90 border-none">
+          <div className="relative flex items-center justify-center">
+            <img 
+              src={detailBooking?.payment_proof} 
+              alt="Bukti Pembayaran - Zoom" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

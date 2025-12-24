@@ -46,6 +46,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/TableSkeleton';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 const scheduleSchema = z.object({
   course_id: z.string().min(1, "Course is required"),
@@ -75,7 +76,9 @@ export default function SchedulesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: schedulesData, isLoading, error } = useSchedules();
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const { data: schedulesData, isLoading, error } = useSchedules(page, limit);
   const { data: coursesData } = useCourses();
   const { data: instructorsData } = useInstructors();
   const { data: roomsData } = useRooms();
@@ -219,9 +222,9 @@ export default function SchedulesPage() {
     }
   }
 
-  const courses = coursesData || [];
-  const instructors = instructorsData?.instructors || instructorsData || [];
-  const rooms = roomsData || [];
+  const courses = coursesData?.data || [];
+  const instructors = instructorsData?.data || [];
+  const rooms = roomsData?.data || [];
 
   // Build lookup maps
   const courseMap: { [key: string]: string } = {};
@@ -249,7 +252,7 @@ export default function SchedulesPage() {
   if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading schedules</div>;
 
-  const schedules = Array.isArray(schedulesData) ? schedulesData : [];
+  const schedules = schedulesData?.data || [];
 
   // Grouping Logic
   const groupedSchedules = schedules.reduce((acc: any, schedule: any) => {
@@ -586,6 +589,14 @@ export default function SchedulesPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          currentPage={page}
+          totalCount={schedulesData?.total || 0}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Edit Schedule Dialog */}

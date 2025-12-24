@@ -16,6 +16,8 @@ import SchedulesPage from '@/pages/Schedules'
 import ScheduleDetailsPage from '@/pages/ScheduleDetails'
 import ReportsPage from '@/pages/Reports'
 import PaymentsPage from '@/pages/Payments'
+import { useEffect } from 'react'
+import { authService } from '@/services/authService'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,6 +32,10 @@ const queryClient = new QueryClient({
 })
 
 function App() {
+  useEffect(() => {
+    authService.initialize();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
