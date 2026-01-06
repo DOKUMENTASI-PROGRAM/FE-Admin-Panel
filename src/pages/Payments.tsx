@@ -344,7 +344,7 @@ export default function PaymentsPage() {
                       ${(payment.status || 'success') === 'success' ? 'bg-green-100 text-green-800' : 
                         (payment.status || 'success') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                         'bg-red-100 text-red-800'}`}>
-                      {payment.status || 'Success'}
+                      {(payment.status || 'success') === 'success' ? 'Lunas' : payment.status}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -457,10 +457,8 @@ export default function PaymentsPage() {
                   <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="transfer">Transfer</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="qris">QRIS</SelectItem>
-                      <SelectItem value="virtual_account">Virtual Account</SelectItem>
+                      <SelectItem value="virtual_account">BCA</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -471,8 +469,8 @@ export default function PaymentsPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="success">Success</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="success">Lunas</SelectItem>
+                      <SelectItem value="failed">Gagal</SelectItem>
                     </SelectContent>
                   </Select>
               </div>
@@ -606,10 +604,8 @@ export default function PaymentsPage() {
                   <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="transfer">Transfer</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="qris">QRIS</SelectItem>
-                      <SelectItem value="virtual_account">Virtual Account</SelectItem>
+                      <SelectItem value="virtual_account">BCA</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -620,8 +616,8 @@ export default function PaymentsPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="success">Success</SelectItem>
-                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="success">Lunas</SelectItem>
+                      <SelectItem value="failed">Gagal</SelectItem>
                     </SelectContent>
                   </Select>
               </div>
@@ -709,7 +705,7 @@ export default function PaymentsPage() {
                       ${(selectedPayment.status || 'success') === 'success' ? 'bg-green-100 text-green-800' : 
                         (selectedPayment.status || 'success') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                         'bg-red-100 text-red-800'}`}>
-                      {selectedPayment.status || 'Success'}
+                      {(selectedPayment.status || 'success') === 'success' ? 'Lunas' : selectedPayment.status}
                     </span>
                   </div>
                 </div>

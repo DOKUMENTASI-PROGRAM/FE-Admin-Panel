@@ -6,7 +6,7 @@ import Dashboard from '@/pages/Dashboard'
 import Layout from '@/components/Layout'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import StudentsPage from '@/pages/Students'
-import StudentsFEPage from '@/pages/StudentsFE'
+
 import CoursesPage from '@/pages/Courses'
 import BookingsPage from '@/pages/Bookings'
 import InstructorsPage from '@/pages/Instructors'
@@ -47,7 +47,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/students" element={<StudentsPage />} />
-            <Route path="/students-fe" element={<StudentsFEPage />} />
+
             <Route path="/instructors" element={<InstructorsPage />} />
             <Route path="/rooms" element={<RoomsPage />} />
             <Route path="/courses" element={<CoursesPage />} />

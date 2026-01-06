@@ -139,7 +139,7 @@ export default function Layout() {
     { href: '/schedules', label: 'Schedules', icon: Clock },
     { href: '/bookings', label: 'Bookings', icon: Calendar },
     { href: '/students', label: 'Students', icon: GraduationCap },
-    { href: '/students-fe', label: 'Students (FE)', icon: GraduationCap },
+
     { href: '/payments', label: 'Payments', icon: Banknote },
     { href: '/reports', label: 'Reports', icon: BarChart3 },
   ];

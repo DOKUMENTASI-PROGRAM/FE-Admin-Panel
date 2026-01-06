@@ -96,7 +96,6 @@ export default function Dashboard() {
       description: "Active students in the system",
       color: "text-blue-600",
       bgColor: "bg-blue-100",
-      trend: "+12% from last month"
     },
     {
       title: "Total Courses",
@@ -105,7 +104,6 @@ export default function Dashboard() {
       description: "Available courses",
       color: "text-purple-600",
       bgColor: "bg-purple-100",
-      trend: "+4 new courses"
     },
     {
       title: "Total Bookings",
@@ -114,16 +112,14 @@ export default function Dashboard() {
       description: "All time bookings",
       color: "text-green-600",
       bgColor: "bg-green-100",
-      trend: "+8% increase"
     },
     {
       title: "Revenue",
-      value: new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data?.revenue || 0),
+      value: new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data?.totalRevenue || data?.paymentStats?.totalRevenue || 0),
       icon: DollarSign,
       description: "Total revenue",
       color: "text-orange-600",
       bgColor: "bg-orange-100",
-      trend: "+2.5% from last month"
     }
   ];
 
@@ -168,12 +164,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                <div className="flex items-center text-xs text-muted-foreground mt-1">
-                  <span className="text-green-600 font-medium flex items-center mr-1">
-                    <ArrowUpRight className="h-3 w-3 mr-0.5" />
-                    {stat.trend}
-                  </span>
-                </div>
+
                 <p className="text-xs text-gray-400 mt-2">
                   {stat.description}
                 </p>
