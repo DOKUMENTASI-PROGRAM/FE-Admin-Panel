@@ -58,14 +58,14 @@ export function CreateCourseDialog() {
       level: "beginner",
       price_per_session: 0,
       duration_minutes: 90,
-      max_students: 5,
+      max_students: 1,
       instrument: "",
     },
   });
 
   const mutation = useMutation({
     mutationFn: async (values: CourseFormValues) => {
-      const response = await api.post("/courses", values);
+      const response = await api.post("/api/courses", values);
       return response.data;
     },
     onSuccess: () => {

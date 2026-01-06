@@ -90,10 +90,10 @@ export default function Dashboard() {
 
   const stats = [
     {
-      title: "Total Users",
-      value: data?.userStats?.totalUsers || 0,
+      title: "Total Students",
+      value: data?.studentStats?.totalStudents || 0,
       icon: Users,
-      description: "Active users in the system",
+      description: "Active students in the system",
       color: "text-blue-600",
       bgColor: "bg-blue-100",
       trend: "+12% from last month"

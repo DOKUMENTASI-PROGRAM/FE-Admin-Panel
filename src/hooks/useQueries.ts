@@ -15,6 +15,7 @@ export const queryKeys = {
   rooms: () => [...queryKeys.all, 'rooms'] as const,
   schedules: () => [...queryKeys.all, 'schedules'] as const,
   dashboard: () => [...queryKeys.all, 'dashboard'] as const,
+  availabilitySlots: () => [...queryKeys.all, 'availabilitySlots'] as const,
 };
 
 /**
@@ -152,6 +153,33 @@ export function useBookings(page = 1, limit = 10) {
 }
 
 /**
+ * Fetch ALL bookings for reporting/export
+ */
+export function useAllBookings() {
+  return useQuery({
+    queryKey: [...queryKeys.bookings(), 'all'],
+    queryFn: async () => {
+      const limit = 1000;
+      const res = await api.get(`/api/admin/bookings?page=1&limit=${limit}`);
+      console.log('useAllBookings RAW RES:', res);
+      const raw = res.data.data;
+      console.log('useAllBookings RAW DATA:', raw);
+      
+      let allBookings: any[] = [];
+      
+      if (raw && !Array.isArray(raw) && raw.bookings) {
+        allBookings = raw.bookings;
+      } else if (Array.isArray(raw)) {
+        allBookings = raw;
+      }
+      console.log('useAllBookings FINAL:', allBookings);
+      
+      return allBookings;
+    },
+  });
+}
+
+/**
  * Fetch rooms - reusable across all pages
  */
 export function useRooms(page?: number, limit?: number) {
@@ -197,6 +225,27 @@ export function useSchedules(page = 1, limit = 10) {
 }
 
 /**
+ * Fetch ALL schedules for dropdowns/lookups
+ */
+export function useAllSchedules() {
+  return useQuery({
+    queryKey: [...queryKeys.schedules(), 'all'],
+    queryFn: async () => {
+      // Use a large limit to get all schedules
+      const res = await api.get(`/api/admin/schedules?page=1&limit=1000`);
+      const raw = res.data.data;
+
+      if (raw && !Array.isArray(raw) && (raw.schedules || raw.data)) {
+        return { data: raw.schedules || raw.data, total: raw.total || 0 };
+      }
+
+      const list = Array.isArray(raw) ? raw : [];
+      return { data: list, total: list.length };
+    },
+  });
+}
+
+/**
  * Fetch dashboard data
  */
 export function useDashboard() {
@@ -205,6 +254,30 @@ export function useDashboard() {
     queryFn: async () => {
       const res = await api.get('/api/admin/dashboard');
       return res.data.data;
+    },
+  });
+}
+
+/**
+ * Fetch availability slots with enrollment data
+ * Uses /api/booking/availability/find-slots?include_all=true
+ * Returns slots with current_enrollments, pending_count, confirmed_count, etc.
+ */
+export function useAvailabilitySlots(courseId?: string, instructorId?: string) {
+  return useQuery({
+    queryKey: [...queryKeys.availabilitySlots(), courseId, instructorId],
+    queryFn: async () => {
+      let url = '/api/booking/availability/find-slots?include_all=true';
+      if (courseId) url += `&course_id=${courseId}`;
+      if (instructorId) url += `&instructor_id=${instructorId}`;
+      
+      const res = await api.get(url);
+      const data = res.data.data;
+      
+      return {
+        slots: data?.slots || [],
+        meta: res.data.meta || {},
+      };
     },
   });
 }

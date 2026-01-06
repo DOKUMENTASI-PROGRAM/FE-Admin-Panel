@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import { useStudents, useCourses, useSchedules, useBookings, useUsers, useStudent, queryKeys } from '@/hooks/useQueries';
+import { useStudents, useCourses, useBookings, useUsers, useStudent, useAllSchedules, queryKeys } from '@/hooks/useQueries';
 import { uploadToStorage } from '@/lib/supabase';
 import {
   Table,
@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,40 +107,37 @@ const createStudentSchema = z.object({
 
 // Schema untuk update student (PUT /api/admin/students/:id)
 const updateStudentSchema = z.object({
-  // Data Dasar Siswa
-  display_name: z.string().min(2, "Nama minimal 2 karakter").optional(),
-  email: z.string().email("Format email tidak valid").optional(),
-  
-  // Pilihan Kursus & Jadwal
-  course_id: z.string().uuid().optional(),
-  first_choice_slot_id: z.string().uuid().optional(),
-  second_choice_slot_id: z.string().uuid().optional(),
-  preferred_days: z.array(z.string()).optional(),
-  preferred_time_range: z.object({
-    start: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Format waktu HH:MM"),
-    end: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Format waktu HH:MM"),
-  }).optional(),
-  
-  // Data Wali/Orang Tua
-  guardian_name: z.string().optional(),
-  guardian_wa_number: z.string().optional(),
-  
-  // Data Pribadi Siswa
-  applicant_address: z.string().optional(),
-  applicant_birth_place: z.string().optional(),
-  applicant_birth_date: z.string().optional(),
-  applicant_school: z.string().optional(),
-  applicant_class: z.string().optional(),
-  
-  // Data Opsional
-  experience_level: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
-  notes: z.string().optional(),
-  instrument: z.string().optional(),
-  level: z.string().optional(),
+  // Student Data
+  display_name: z.string().min(2, "Nama minimal 2 karakter").optional().or(z.literal('')),
+  email: z.string().email("Format email tidak valid").optional().or(z.literal('')),
+  booking_id: z.string().uuid().optional().or(z.literal('')),
+  user_id: z.string().uuid().optional().or(z.literal('')),
+  instrument: z.string().optional().or(z.literal('')),
+  level: z.string().optional().or(z.literal('')),
   has_instrument: z.boolean().optional(),
   photo_url: z.string().url().optional().or(z.literal('')),
-  highlight_quote: z.string().optional(),
+  highlight_quote: z.string().optional().or(z.literal('')),
   can_publish: z.boolean().optional(),
+  
+  // Booking Data (jika ingin update booking terkait sekaligus)
+  course_id: z.string().uuid().optional().or(z.literal('')),
+  first_choice_slot_id: z.string().uuid().optional().or(z.literal('')),
+  second_choice_slot_id: z.string().uuid().optional().or(z.literal('')),
+  preferred_days: z.array(z.string()).optional(),
+  // preferred_time_range with HH:MM format validation - form reset ensures valid defaults
+  preferred_time_range: z.object({
+    start: z.string().regex(/^([01]?\d|2[0-3]):([0-5]\d)$/, "Format waktu HH:MM (contoh: 14:30)"),
+    end: z.string().regex(/^([01]?\d|2[0-3]):([0-5]\d)$/, "Format waktu HH:MM (contoh: 14:30)"),
+  }).optional(),
+  guardian_name: z.string().optional().or(z.literal('')),
+  guardian_wa_number: z.string().optional().or(z.literal('')),
+  applicant_address: z.string().optional().or(z.literal('')),
+  applicant_birth_place: z.string().optional().or(z.literal('')),
+  applicant_birth_date: z.string().optional().or(z.literal('')),
+  applicant_school: z.string().optional().or(z.literal('')),
+  applicant_class: z.string().optional().or(z.literal('')),
+  experience_level: z.enum(['beginner', 'intermediate', 'advanced']).optional().or(z.literal('')),
+  notes: z.string().optional().or(z.literal('')),
 });
 
 export default function StudentsPage() {
@@ -153,6 +151,7 @@ export default function StudentsPage() {
   // Photo upload states
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [zoomedPhotoUrl, setZoomedPhotoUrl] = useState<string | null>(null);
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
   const [isUploadingEditPhoto, setIsUploadingEditPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -162,9 +161,9 @@ export default function StudentsPage() {
   const queryClient = useQueryClient();
 
   // Existing hooks
-  const { isLoading: isStudentsLoading, error: studentsError } = useStudents();
+  const { isLoading: isStudentsLoading, error: studentsError, data: studentsData } = useStudents(1, 1000);
   const { data: coursesData } = useCourses();
-  const { data: schedulesData } = useSchedules();
+  const { data: schedulesData } = useAllSchedules();
   
   // New hooks for table data
   // For Students page, we need ALL bookings to filter confirmed ones, so use high limit
@@ -175,6 +174,22 @@ export default function StudentsPage() {
   const { data: studentDetail, isLoading: isStudentDetailLoading } = useStudent(selectedStudent?.id);
 
   // Maps for table display
+  const fullStudentMap = useMemo(() => {
+    const lookup: { [key: string]: any } = {};
+    const students = studentsData?.data || [];
+    if (Array.isArray(students)) {
+      students.forEach((student: any) => {
+        if (student) {
+           if (student.user_id) lookup[student.user_id] = student;
+           if (student.id) lookup[student.id] = student;
+           // Also map by booking_id so we can find student from confirmed booking
+           if (student.booking_id) lookup[`booking_${student.booking_id}`] = student;
+        }
+      });
+    }
+    return lookup;
+  }, [studentsData]);
+
   const studentMap = useMemo(() => {
     const lookup: { [key: string]: any } = {};
     const users = usersData?.data || [];
@@ -202,6 +217,17 @@ export default function StudentsPage() {
   const slotsMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
     
+    // Helper to normalize time (remove seconds if present)
+    const normalizeTime = (time: string | null | undefined): string => {
+      if (!time) return '';
+      const parts = time.split(':');
+      if (parts.length >= 2) {
+        return `${parts[0]}:${parts[1]}`;
+      }
+      return time;
+    };
+    
+    // Helper function to extract time and day from ISO datetime
     const extractTimeInfo = (dateString: string) => {
       try {
         const date = new Date(dateString);
@@ -224,35 +250,55 @@ export default function StudentsPage() {
       }
     };
     
-    const schedules = schedulesData?.data || [];
+    // Handle both array and paginated response for schedules
+    const schedules = schedulesData?.data || schedulesData || [];
+    
     if (Array.isArray(schedules)) {
       schedules.forEach((schedule: any) => {
+        // Handle nested slots array structure
         const nestedSlots = schedule.slots || schedule.schedule || schedule.timings;
         if (Array.isArray(nestedSlots)) {
           nestedSlots.forEach((slot: any) => {
             if (slot.id) {
               let slotInfo: string;
+              // Check if it's ISO datetime format
               if (slot.start_time && slot.start_time.includes('T')) {
                 const dayOfWeek = extractDayOfWeek(slot.start_time);
                 const startTime = extractTimeInfo(slot.start_time);
                 const endTime = extractTimeInfo(slot.end_time);
                 slotInfo = `${dayOfWeek} ${startTime} - ${endTime}`;
               } else {
-                slotInfo = `${slot.day_of_week || slot.day || 'TBD'} ${slot.start_time || slot.start || ''} - ${slot.end_time || slot.end || ''}`;
+                // Use start_time_of_day if start_time is null
+                const startTime = normalizeTime(slot.start_time_of_day || slot.start_time || slot.start);
+                const endTime = normalizeTime(slot.end_time_of_day || slot.end_time || slot.end);
+                slotInfo = `${slot.day_of_week || slot.day || 'TBD'} ${startTime} - ${endTime}`;
               }
               lookup[slot.id] = slotInfo;
             }
           });
         }
         
-        if (schedule.id && schedule.start_time && schedule.end_time) {
+        // Handle flat structure where schedule itself is the slot
+        // Check for start_time_of_day (new format) OR start_time (old format)
+        const hasNewFormat = schedule.start_time_of_day && schedule.end_time_of_day;
+        const hasOldFormat = schedule.start_time && schedule.end_time;
+        
+        if (schedule.id && (hasNewFormat || hasOldFormat)) {
           let slotInfo: string;
-          if (schedule.start_time.includes('T')) {
+          
+          if (hasNewFormat) {
+            // New subscription format with start_time_of_day
+            const startTime = normalizeTime(schedule.start_time_of_day);
+            const endTime = normalizeTime(schedule.end_time_of_day);
+            slotInfo = `${schedule.day_of_week || 'TBD'} ${startTime} - ${endTime}`;
+          } else if (schedule.start_time.includes('T')) {
+            // Old ISO datetime format
             const dayOfWeek = extractDayOfWeek(schedule.start_time);
             const startTime = extractTimeInfo(schedule.start_time);
             const endTime = extractTimeInfo(schedule.end_time);
             slotInfo = `${dayOfWeek} ${startTime} - ${endTime}`;
           } else {
+            // Old simple time format
             slotInfo = `${schedule.day_of_week || 'TBD'} ${schedule.start_time} - ${schedule.end_time}`;
           }
           lookup[schedule.id] = slotInfo;
@@ -272,9 +318,17 @@ export default function StudentsPage() {
   }, [bookingsData]);
 
   // Helper to get slot text
-  const getSlotText = (slotId: string, prefText?: string) => {
+  const getSlotText = (slotId: string, prefText?: any) => {
     if (slotId && slotsMap[slotId]) return slotsMap[slotId];
-    if (prefText) return prefText;
+    
+    if (prefText && typeof prefText === 'object') {
+       const day = prefText.day || prefText.day_of_week || 'TBD';
+       const start = prefText.start_time || prefText.start || '';
+       const end = prefText.end_time || prefText.end || '';
+       return `${day} ${start} - ${end}`;
+    }
+
+    if (prefText && typeof prefText === 'string') return prefText;
     return '-';
   };
 
@@ -399,6 +453,21 @@ export default function StudentsPage() {
   // Reset edit form when selected student changes
   useEffect(() => {
     if (selectedStudent) {
+      // Helper to validate time format HH:MM
+      const isValidTimeFormat = (time: any): boolean => {
+        if (!time || typeof time !== 'string') return false;
+        return /^([01]?\d|2[0-3]):([0-5]\d)$/.test(time);
+      };
+      
+      // Get valid preferred_time_range or use defaults
+      const getPreferredTimeRange = () => {
+        const ptr = selectedStudent.preferred_time_range;
+        if (ptr && isValidTimeFormat(ptr.start) && isValidTimeFormat(ptr.end)) {
+          return ptr;
+        }
+        return { start: "09:00", end: "17:00" };
+      };
+      
       editForm.reset({
         display_name: selectedStudent.display_name || selectedStudent.full_name || "",
         email: selectedStudent.email || "",
@@ -406,7 +475,7 @@ export default function StudentsPage() {
         first_choice_slot_id: selectedStudent.first_choice_slot_id || "",
         second_choice_slot_id: selectedStudent.second_choice_slot_id || "",
         preferred_days: selectedStudent.preferred_days || [],
-        preferred_time_range: selectedStudent.preferred_time_range || { start: "09:00", end: "17:00" },
+        preferred_time_range: getPreferredTimeRange(),
         guardian_name: selectedStudent.guardian_name || "",
         guardian_wa_number: selectedStudent.guardian_wa_number || "",
         applicant_address: selectedStudent.applicant_address || "",
@@ -1111,12 +1180,13 @@ export default function StudentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Photo</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>School</TableHead>
               <TableHead>Course</TableHead>
-              <TableHead>First Choice</TableHead>
-              <TableHead>Second Choice</TableHead>
+              <TableHead>Schedules</TableHead>
+              <TableHead>Can Publish</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -1124,6 +1194,19 @@ export default function StudentsPage() {
             {confirmedBookings.length > 0 ? (
               confirmedBookings.map((booking: any) => (
                 <TableRow key={booking.id}>
+                  <TableCell>
+                    {(fullStudentMap[`booking_${booking.id}`]?.photo_url || fullStudentMap[booking.user_id]?.photo_url || booking.applicant_photo || booking.photo_url || studentMap[booking.user_id]?.photo_url) ? (
+                      <img
+                        src={fullStudentMap[`booking_${booking.id}`]?.photo_url || fullStudentMap[booking.user_id]?.photo_url || booking.applicant_photo || booking.photo_url || studentMap[booking.user_id]?.photo_url}
+                        alt="Student"
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-medium">
+                        {(booking.applicant_full_name?.[0] || studentMap[booking.user_id]?.full_name?.[0] || booking.user_id?.[0] || '?').toUpperCase()}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     {booking.applicant_full_name || studentMap[booking.user_id]?.full_name || studentMap[booking.user_id]?.name || booking.user_id || '-'}
                   </TableCell>
@@ -1137,15 +1220,13 @@ export default function StudentsPage() {
                     {courseMap[booking.course_id] || booking.course_id}
                   </TableCell>
                   <TableCell>
-                    {getSlotText(
-                      booking.first_choice_slot_id || booking.slot_preferences?.[0]?.slot_id,
-                      booking.first_preference || booking.slot_preferences?.[0]?.display_text
-                    )}
+                    {getSlotText(booking.confirmed_slot_id)}
                   </TableCell>
                   <TableCell>
-                    {getSlotText(
-                      booking.second_choice_slot_id || booking.slot_preferences?.[1]?.slot_id,
-                      booking.second_preference || booking.slot_preferences?.[1]?.display_text
+                    {(fullStudentMap[`booking_${booking.id}`]?.can_publish || fullStudentMap[booking.user_id]?.can_publish) ? (
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">Yes</Badge>
+                    ) : (
+                      <Badge variant="secondary">No</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -1154,23 +1235,54 @@ export default function StudentsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          const student = studentMap[booking.user_id] || {
-                             id: booking.user_id,
-                             display_name: booking.applicant_full_name,
-                             full_name: booking.applicant_full_name,
-                             email: booking.applicant_email,
-                             applicant_school: booking.applicant_school,
-                             applicant_class: booking.applicant_class,
-                             applicant_address: booking.applicant_address,
-                             applicant_birth_place: booking.applicant_birth_place,
-                             applicant_birth_date: booking.applicant_birth_date,
-                             guardian_name: booking.guardian_name,
-                             guardian_wa_number: booking.guardian_wa_number,
-                             booking_id: booking.id,
-                             photo_url: booking.applicant_photo || booking.photo_url,
-                             // Add other fields if available in booking or need defaults
+                          // Try to find student by booking_id first, then user_id
+                          const studentFromBookingId = fullStudentMap[`booking_${booking.id}`];
+                          const studentFromUserId = fullStudentMap[booking.user_id];
+                          const studentFromUsers = studentMap[booking.user_id];
+                          
+                          // Prioritize student found by booking_id
+                          const studentRecord = studentFromBookingId || studentFromUserId;
+                          
+                          // Create merged object prioritizing student record but falling back to booking/user data
+                          const mergedStudent = {
+                             ...studentRecord,
+                             // Ensure IDs are set
+                             id: studentRecord?.id || booking.user_id,
+                             booking_id: booking.id, // Always use current booking id
+                             
+                             // Merge fields - prioritize student record, fallback to booking/user data
+                             display_name: studentRecord?.display_name || studentRecord?.full_name || studentFromUsers?.display_name || studentFromUsers?.full_name || booking.applicant_full_name,
+                             full_name: studentRecord?.display_name || studentRecord?.full_name || studentFromUsers?.display_name || studentFromUsers?.full_name || booking.applicant_full_name,
+                             email: studentRecord?.email || studentFromUsers?.email || booking.applicant_email,
+                             
+                             // Guardian Data
+                             guardian_name: studentRecord?.guardian_name || booking.guardian_name,
+                             guardian_wa_number: studentRecord?.guardian_wa_number || booking.guardian_wa_number,
+                             
+                             // Personal Data
+                             applicant_address: studentRecord?.applicant_address || booking.applicant_address,
+                             applicant_birth_place: studentRecord?.applicant_birth_place || booking.applicant_birth_place,
+                             applicant_birth_date: studentRecord?.applicant_birth_date || booking.applicant_birth_date,
+                             applicant_school: studentRecord?.applicant_school || booking.applicant_school,
+                             applicant_class: studentRecord?.applicant_class || booking.applicant_class,
+                             
+                             // Music Data
+                             instrument: studentRecord?.instrument || booking.instrument || 'Piano', // Default if needed
+                             level: studentRecord?.level || studentRecord?.experience_level || booking.experience_level,
+                             experience_level: studentRecord?.experience_level || booking.experience_level,
+                             has_instrument: studentRecord?.has_instrument ?? booking.instrument_owned,
+                             
+                             // System Data
+                             created_at: studentRecord?.created_at || booking.created_at,
+                             updated_at: studentRecord?.updated_at || booking.updated_at,
+                             notes: studentRecord?.notes || booking.notes,
+                             
+                             // Photo
+                             photo_url: studentRecord?.photo_url || booking.applicant_photo || booking.photo_url,
+                             can_publish: studentRecord?.can_publish,
                           };
-                          setSelectedStudent(student);
+
+                          setSelectedStudent(mergedStudent);
                           setIsViewOpen(true);
                         }}
                       >
@@ -1180,25 +1292,48 @@ export default function StudentsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                           const student = studentMap[booking.user_id] || {
-                             id: booking.user_id,
-                             display_name: booking.applicant_full_name,
-                             email: booking.applicant_email,
-                             applicant_school: booking.applicant_school,
-                             applicant_class: booking.applicant_class,
-                             applicant_address: booking.applicant_address,
-                             applicant_birth_place: booking.applicant_birth_place,
-                             applicant_birth_date: booking.applicant_birth_date,
-                             guardian_name: booking.guardian_name,
-                             guardian_wa_number: booking.guardian_wa_number,
-                             course_id: booking.course_id,
-                             first_choice_slot_id: booking.first_choice_slot_id,
-                             second_choice_slot_id: booking.second_choice_slot_id,
-                             photo_url: booking.applicant_photo || booking.photo_url,
-                             // other fields might be missing if constructed from booking
-                          };
-                          setSelectedStudent(student);
-                          setIsEditOpen(true);
+                           // Try to find student by booking_id first, then user_id
+                           const studentFromBookingId = fullStudentMap[`booking_${booking.id}`];
+                           const studentFromUserId = fullStudentMap[booking.user_id];
+                           const studentFromUsers = studentMap[booking.user_id];
+                           
+                           // Prioritize student found by booking_id
+                           const studentRecord = studentFromBookingId || studentFromUserId;
+                           
+                           if (studentRecord && studentRecord.id) {
+                             // Merge student data with booking data for complete form auto-fill
+                             // Booking data is used as fallback for fields not in student record
+                             setSelectedStudent({
+                               ...studentRecord,
+                               user_id: booking.user_id,
+                               // Merge booking data for fields that might not be in student record
+                               display_name: studentRecord.display_name || studentFromUsers?.display_name || studentFromUsers?.full_name || booking.applicant_full_name,
+                               email: studentRecord.email || studentFromUsers?.email || booking.applicant_email,
+                               course_id: studentRecord.course_id || booking.course_id,
+                               first_choice_slot_id: studentRecord.first_choice_slot_id || booking.first_choice_slot_id,
+                               second_choice_slot_id: studentRecord.second_choice_slot_id || booking.second_choice_slot_id,
+                               preferred_days: studentRecord.preferred_days || booking.preferred_days,
+                               preferred_time_range: studentRecord.preferred_time_range || booking.preferred_time_range,
+                               guardian_name: studentRecord.guardian_name || booking.guardian_name,
+                               guardian_wa_number: studentRecord.guardian_wa_number || booking.guardian_wa_number,
+                               applicant_address: studentRecord.applicant_address || booking.applicant_address,
+                               applicant_birth_place: studentRecord.applicant_birth_place || booking.applicant_birth_place,
+                               applicant_birth_date: studentRecord.applicant_birth_date || booking.applicant_birth_date,
+                               applicant_school: studentRecord.applicant_school || booking.applicant_school,
+                               applicant_class: studentRecord.applicant_class || booking.applicant_class,
+                               experience_level: studentRecord.experience_level || booking.experience_level,
+                               notes: studentRecord.notes || booking.notes,
+                               photo_url: studentRecord.photo_url || booking.applicant_photo || booking.photo_url,
+                             });
+                             setIsEditOpen(true);
+                           } else {
+                             // No student record found - show error message
+                             toast({
+                               variant: "destructive",
+                               title: "Error",
+                               description: "Data student tidak ditemukan. Pastikan booking sudah di-confirm dan student record sudah dibuat."
+                             });
+                           }
                         }}
                       >
                         <Pencil className="h-4 w-4" />
@@ -1208,14 +1343,23 @@ export default function StudentsPage() {
                         size="icon"
                         className="text-destructive hover:text-destructive"
                         onClick={() => {
-                           const student = studentMap[booking.user_id] || {
-                             id: booking.user_id,
-                             display_name: booking.applicant_full_name,
-                             photo_url: booking.applicant_photo || booking.photo_url,
-                             // Minimal data needed for delete confirmation
-                          };
-                          setSelectedStudent(student);
-                          setIsDeleteOpen(true);
+                           // Try to find student by booking_id first, then user_id
+                           const studentFromBookingId = fullStudentMap[`booking_${booking.id}`];
+                           const studentFromUserId = fullStudentMap[booking.user_id];
+                           
+                           // Prioritize student found by booking_id
+                           const studentRecord = studentFromBookingId || studentFromUserId;
+                           
+                           if (studentRecord && studentRecord.id) {
+                             setSelectedStudent(studentRecord);
+                             setIsDeleteOpen(true);
+                           } else {
+                             toast({
+                               variant: "destructive",
+                               title: "Error",
+                               description: "Data student tidak ditemukan. Tidak bisa menghapus."
+                             });
+                           }
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1258,7 +1402,8 @@ export default function StudentsPage() {
                   <img
                     src={selectedStudent.photo_url}
                     alt={selectedStudent.display_name || selectedStudent.full_name || 'Student'}
-                    className="w-32 h-32 object-cover rounded-lg border"
+                    className="w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setZoomedPhotoUrl(selectedStudent.photo_url)}
                   />
                 </div>
               )}
@@ -1275,14 +1420,7 @@ export default function StudentsPage() {
                     <label className="text-sm font-medium text-gray-500">Email</label>
                     <p className="text-sm">{selectedStudent.email || '-'}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">ID Siswa</label>
-                    <p className="text-xs font-mono">{selectedStudent.id || '-'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">ID Booking</label>
-                    <p className="text-xs font-mono">{selectedStudent.booking_id || '-'}</p>
-                  </div>
+                  {/* ID fields hidden as per request */}
                 </div>
               </div>
 
@@ -1411,7 +1549,15 @@ export default function StudentsPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6">
+            <form onSubmit={editForm.handleSubmit(onEditSubmit, (errors) => {
+              // Log validation errors for debugging
+              console.log('Form validation errors:', errors);
+              toast({
+                variant: "destructive",
+                title: "Validation Error",
+                description: "Ada kesalahan pada form. Periksa kembali data yang diisi."
+              });
+            })} className="space-y-6">
               {/* Section 1: Data Dasar Siswa */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg border-b pb-2">Data Dasar Siswa</h3>
@@ -1749,6 +1895,29 @@ export default function StudentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Photo Zoom Dialog */}
+      <Dialog open={!!zoomedPhotoUrl} onOpenChange={() => setZoomedPhotoUrl(null)}>
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden bg-black/90 border-none">
+            <div className="relative h-[80vh] w-full flex items-center justify-center p-4">
+                {zoomedPhotoUrl && (
+                    <img 
+                        src={zoomedPhotoUrl} 
+                        alt="Zoomed" 
+                        className="max-h-full max-w-full object-contain"
+                    />
+                )}
+                <Button
+                    className="absolute top-4 right-4 rounded-full bg-white/20 hover:bg-white/40 text-white"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setZoomedPhotoUrl(null)}
+                >
+                    <X className="h-6 w-6" />
+                </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

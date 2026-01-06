@@ -76,7 +76,7 @@ export default function CoursesPage() {
   const [limit, setLimit] = useState(10);
   
   const { data: coursesData, isLoading, error } = useCourses(page, limit);
-  const { data: instructorsData } = useInstructors();
+  const { data: instructorsData } = useInstructors(1, 1000);
 
   const editForm = useForm<UpdateCourseFormValues>({
     resolver: zodResolver(updateCourseSchema),
@@ -89,7 +89,7 @@ export default function CoursesPage() {
       sessions_per_week: 1,
       price: 0,
       instructor_id: "",
-      max_students: 5,
+      max_students: 1,
       is_active: true,
     },
   });
@@ -194,11 +194,11 @@ export default function CoursesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
-              <TableHead>Instructor</TableHead>
+
               <TableHead>Instrument</TableHead>
               <TableHead>Level</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Students</TableHead>
+
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -206,7 +206,7 @@ export default function CoursesPage() {
             {courses.map((course: any) => (
               <TableRow key={course.id}>
                 <TableCell className="font-medium">{course.title}</TableCell>
-                <TableCell>{course.instructor_name || '-'}</TableCell>
+
                 <TableCell>{course.instrument || '-'}</TableCell>
                 <TableCell>{course.level}</TableCell>
                 <TableCell>
@@ -214,7 +214,7 @@ export default function CoursesPage() {
                     {course.is_active ? 'active' : 'inactive'}
                   </Badge>
                 </TableCell>
-                <TableCell>{course.total_students || 0}</TableCell>
+
                 <TableCell>
                   <div className="flex space-x-1">
                     <Button 

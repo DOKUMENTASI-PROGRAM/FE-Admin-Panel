@@ -25,14 +25,26 @@ export const useAdminNotifications = () => {
 
   // Handle incoming notifications from Supabase Realtime
   const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('Realtime event received:', payload);
+    console.log('🔔 Realtime event received - FULL PAYLOAD:', JSON.stringify(payload, null, 2));
     
     // Map Supabase payload to Notification format
     // Assuming 'bookings' table changes
     const newData = payload.new;
-    const eventTypeStr = payload.eventType; // INSERT, UPDATE, DELETE
+    // Supabase Realtime uses 'eventType' in uppercase: 'INSERT', 'UPDATE', 'DELETE'
+    const eventTypeStr = payload.eventType;
 
-    if (!newData) return; // Should not happen for INSERT/UPDATE
+    console.log('📦 Event Type:', eventTypeStr);
+    console.log('📦 New Data:', JSON.stringify(newData, null, 2));
+
+    if (!newData || Object.keys(newData).length === 0) {
+      console.warn('⚠️ No new data in payload, skipping notification');
+      return;
+    }
+
+    // Debug payload structure to find correct ID field
+    console.log('🔑 New Data Keys:', Object.keys(newData));
+    console.log('🔑 Possible ID fields - id:', newData.id, ', booking_id:', newData.booking_id);
+    console.log('🔑 Status field:', newData.status);
 
     let notificationType: BookingNotification['eventType'] = 'booking.updated';
     
@@ -46,12 +58,19 @@ export const useAdminNotifications = () => {
        }
     }
 
+    // Robust ID extraction - try multiple possible field names
+    const bookingIdRaw = newData.id || newData.booking_id || newData.uuid || newData._id;
+    const bookingId = bookingIdRaw ? String(bookingIdRaw) : 'unknown';
+    const statusValue = newData.status || newData.booking_status || 'N/A';
+
+    console.log('✅ Extracted - bookingId:', bookingId, ', status:', statusValue);
+
     const notification: BookingNotification = {
       eventType: notificationType,
-      bookingId: newData.id,
-      userId: newData.user_id || 'unknown', // Might be null for new bookings
-      courseId: newData.course_id,
-      status: newData.status,
+      bookingId: bookingId,
+      userId: newData.user_id || newData.student_id || 'unknown',
+      courseId: newData.course_id || '',
+      status: statusValue,
       timestamp: new Date().toISOString(),
     };
 

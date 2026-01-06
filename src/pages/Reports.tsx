@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { supabase } from '@/lib/supabase';
+import { useAllBookings, useStudents, useCourses, useInstructors } from '@/hooks/useQueries';
 import {
   Table,
   TableBody,
@@ -26,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RefreshCw, Download, Activity, DollarSign, Users, CalendarDays } from 'lucide-react';
+import { RefreshCw, Download, Activity, DollarSign, Users, CalendarDays, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { TableSkeleton } from '@/components/TableSkeleton';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
@@ -51,6 +53,7 @@ interface RevenueReport {
   average_per_booking: number;
 }
 
+// We will derive these stats client-side now
 interface DashboardStats {
   total_bookings: number;
   total_revenue: number;
@@ -66,6 +69,7 @@ export default function ReportsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [reportType, setReportType] = useState<'activity' | 'revenue' | 'summary'>('summary');
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   // Fetch activity logs
@@ -85,76 +89,194 @@ export default function ReportsPage() {
     enabled: reportType === 'activity',
   });
 
-  // Fetch revenue report
+  // Fetch all data for client-side aggregation
   const { 
-    data: revenueData, 
-    isLoading: isLoadingRevenue, 
-    refetch: refetchRevenue 
-  } = useQuery({
-    queryKey: ['revenue-report', dateFrom, dateTo],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append('from', dateFrom);
-      if (dateTo) params.append('to', dateTo);
-      const response = await api.get(`/api/admin/reports/revenue?${params.toString()}`);
-      return response.data as RevenueReport[];
-    },
-    enabled: reportType === 'revenue',
-  });
+    data: allBookings, 
+    isLoading: isLoadingBookings, 
+    refetch: refetchBookings 
+  } = useAllBookings();
 
-  // Fetch dashboard stats for summary
-  const { 
-    data: statsData, 
-    isLoading: isLoadingStats, 
-    refetch: refetchStats 
-  } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: async () => {
-      const response = await api.get('/api/admin/dashboard');
-      return response.data as DashboardStats;
-    },
-    enabled: reportType === 'summary',
-  });
+  const { data: studentsData, isLoading: isLoadingStudents } = useStudents(1, 1000); // Fetch enough for count or rely on total
+  const { data: coursesData, isLoading: isLoadingCourses } = useCourses(1, 1000);
+  const { data: instructorsData, isLoading: isLoadingInstructors } = useInstructors(1, 1000);
+
+  // LOGGING FOR DEBUGGING
+  if (allBookings) {
+      console.log('Reports - All Bookings:', allBookings);
+      console.log('Reports - Sample Booking:', allBookings[0]);
+  }
+
+  // Calculate Dashboard Stats Client-Side
+  const statsData: DashboardStats | null = useMemo(() => {
+    if (!allBookings || !studentsData || !coursesData || !instructorsData) return null;
+
+    let filteredBookings = allBookings;
+    
+    // Apply date filters if set
+    if (dateFrom || dateTo) {
+      filteredBookings = allBookings.filter((booking: any) => {
+        const bookingDate = new Date(booking.created_at);
+        if (dateFrom && bookingDate < new Date(dateFrom)) return false;
+        if (dateTo) {
+          const toDate = new Date(dateTo);
+          toDate.setHours(23, 59, 59);
+          if (bookingDate > toDate) return false;
+        }
+        return true;
+      });
+    }
+
+    const totalRevenue = filteredBookings.reduce((sum: number, booking: any) => {
+       if (booking.status === 'confirmed' || booking.status === 'completed') {
+           const price = Number(booking.price || booking.courses?.price || 0);
+           return sum + price;
+       }
+       return sum;
+    }, 0);
+
+    return {
+      total_bookings: filteredBookings.length,
+      total_revenue: totalRevenue,
+      // For entities like students/courses, we usually display the TOTAL in the system, 
+      // not filtered by date, unless specifically requested. Keeping it simple:
+      total_students: studentsData.total || 0, 
+      total_courses: coursesData.total || 0,
+      active_instructors: instructorsData.total || 0,
+      
+      pending_bookings: filteredBookings.filter((b: any) => b.status === 'pending').length,
+      completed_bookings: filteredBookings.filter((b: any) => b.status === 'completed').length,
+      cancelled_bookings: filteredBookings.filter((b: any) => b.status === 'cancelled').length,
+    };
+  }, [allBookings, studentsData, coursesData, instructorsData, dateFrom, dateTo]);
+
+
+  // Aggregate revenue data from bookings
+  const revenueData = useMemo(() => {
+    if (!allBookings) return [];
+
+    const monthlyData: { [key: string]: RevenueReport } = {};
+
+    allBookings.forEach((booking: any) => {
+      // Filter by date range if set
+      const bookingDate = new Date(booking.created_at);
+      if (dateFrom && bookingDate < new Date(dateFrom)) return;
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59); // include the end of the day
+        if (bookingDate > toDate) return;
+      }
+
+      // Consider confirmed and completed bookings for revenue
+      if (booking.status !== 'confirmed' && booking.status !== 'completed') return;
+
+      const monthYear = bookingDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+      if (!monthlyData[monthYear]) {
+        monthlyData[monthYear] = {
+          period: monthYear,
+          total_revenue: 0,
+          booking_count: 0,
+          course_revenue: 0,
+          average_per_booking: 0
+        };
+      }
+
+      // Determine price - prioritize booking price, fallback to course price
+      const price = Number(booking.price || booking.courses?.price || 0);
+
+      monthlyData[monthYear].total_revenue += price;
+      monthlyData[monthYear].booking_count += 1;
+      monthlyData[monthYear].course_revenue += price;
+    });
+
+    // Calculate averages and convert to array
+    return Object.values(monthlyData).map(report => ({
+      ...report,
+      average_per_booking: report.booking_count > 0 ? report.total_revenue / report.booking_count : 0
+    })).sort((a, b) => new Date(b.period).getTime() - new Date(a.period).getTime());
+  }, [allBookings, dateFrom, dateTo]);
 
   const handleRefresh = () => {
+    refetchBookings();
     if (reportType === 'activity') {
       refetchLogs();
-    } else if (reportType === 'revenue') {
-      refetchRevenue();
-    } else {
-      refetchStats();
     }
     toast({ title: "Refreshed", description: "Report data has been refreshed" });
   };
 
-  const handleExport = () => {
-    let data: any[] = [];
-    let filename = '';
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      if ((reportType === 'revenue' || reportType === 'summary') && allBookings && allBookings.length > 0) {
+        // Generate CSV from client-side data to avoid schema/relationship issues
+        // and ensure consistency with what's displayed
+        
+        // Define headers
+        const headers = [
+          'Booking ID',
+          'Date',
+          'Status',
+          'Price',
+          'User Name',
+          'User Email',
+          'Course Title'
+        ];
 
-    if (reportType === 'activity' && activityLogs) {
-      data = activityLogs;
-      filename = `activity-logs-${new Date().toISOString().split('T')[0]}.json`;
-    } else if (reportType === 'revenue' && revenueData) {
-      data = revenueData;
-      filename = `revenue-report-${new Date().toISOString().split('T')[0]}.json`;
-    } else if (reportType === 'summary' && statsData) {
-      data = [statsData];
-      filename = `summary-report-${new Date().toISOString().split('T')[0]}.json`;
-    }
+        // Map data to CSV rows
+        const checkValue = (val: any) => val || '-';
+        
+        const rows = allBookings.map((booking: any) => {
+           const date = new Date(booking.created_at).toLocaleDateString();
+           const price = booking.price || booking.courses?.price || 0;
+           return [
+             checkValue(booking.id),
+             checkValue(date),
+             checkValue(booking.status),
+             price,
+             checkValue(booking.applicant_full_name || booking.users?.full_name),
+             checkValue(booking.applicant_email || booking.users?.email),
+             checkValue(booking.courses?.title)
+           ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','); // Escape quotes
+        });
 
-    if (data.length > 0) {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast({ title: "Exported", description: `Report exported as ${filename}` });
-    } else {
-      toast({ variant: "destructive", title: "Error", description: "No data to export" });
+        const csvContent = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bookings_export_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast({ title: "Exported", description: "Bookings data exported as CSV" });
+      } else {
+        // Fallback or empty data handling
+        if (reportType === 'activity' && activityLogs) {
+             const blob = new Blob([JSON.stringify(activityLogs, null, 2)], { type: 'application/json' });
+             const url = URL.createObjectURL(blob);
+             const a = document.createElement('a');
+             a.href = url;
+             a.download = `activity-logs-${new Date().toISOString().split('T')[0]}.json`;
+             document.body.appendChild(a);
+             a.click();
+             document.body.removeChild(a);
+             URL.revokeObjectURL(url);
+             toast({ title: "Exported", description: "Activity logs exported as JSON" });
+        } else if (!allBookings || allBookings.length === 0) {
+            toast({ variant: "destructive", title: "Export Failed", description: "No data available to export" });
+        }
+      }
+    } catch (error: any) {
+      console.error('Export error:', error);
+      toast({ 
+        variant: "destructive", 
+        title: "Export Failed", 
+        description: error.message || "Failed to export data" 
+      });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -179,7 +301,18 @@ export default function ReportsPage() {
     }
   };
 
-  const isLoading = isLoadingLogs || isLoadingRevenue || isLoadingStats;
+  // Determine button text and icon
+  const getExportButtonContent = () => {
+      if (isExporting) {
+          return <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Exporting...</>;
+      }
+      if (reportType === 'activity') {
+          return <><Download className="mr-2 h-4 w-4" /> Export JSON</>;
+      }
+      return <><FileSpreadsheet className="mr-2 h-4 w-4" /> Export CSV</>;
+  };
+
+  const isLoading = isLoadingLogs || isLoadingBookings || isLoadingStudents || isLoadingCourses || isLoadingInstructors;
 
   return (
     <div className="space-y-6">
@@ -190,9 +323,8 @@ export default function ReportsPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export
+          <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+            {getExportButtonContent()}
           </Button>
         </div>
       </div>
@@ -246,7 +378,7 @@ export default function ReportsPage() {
       {/* Summary Report */}
       {reportType === 'summary' && (
         <div className="space-y-4">
-          {isLoadingStats ? (
+          {isLoading ? (
             <DashboardSkeleton />
           ) : statsData ? (
             <>
@@ -344,7 +476,7 @@ export default function ReportsPage() {
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
-                No summary data available. The dashboard stats endpoint may not be configured.
+                No summary data available.
               </CardContent>
             </Card>
           )}
@@ -402,7 +534,7 @@ export default function ReportsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                No activity logs found. Activity logs may not be configured or no activities recorded yet.
+                No activity logs found.
               </div>
             )}
           </CardContent>
@@ -414,10 +546,10 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Revenue Report</CardTitle>
-            <CardDescription>Revenue breakdown by period</CardDescription>
+            <CardDescription>Revenue breakdown by period (from Bookings)</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingRevenue ? (
+            {isLoadingBookings ? (
               <TableSkeleton columnCount={5} rowCount={5} />
             ) : revenueData && revenueData.length > 0 ? (
               <div className="border rounded-md">
@@ -452,7 +584,7 @@ export default function ReportsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                No revenue data found. Revenue reports may not be configured or no revenue recorded yet.
+                No revenue data found based on confirmed bookings.
               </div>
             )}
           </CardContent>

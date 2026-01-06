@@ -32,13 +32,14 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Trash } from "lucide-react";
+import { TimePicker } from "@/components/ui/time-picker";
 
 const scheduleSchema = z.object({
   course_id: z.string().min(1, "Course is required"),
   instructor_id: z.string().min(1, "Instructor is required"),
   room_id: z.string().min(1, "Room is required"),
-  start_date: z.string().min(1, "Start date is required"),
-  end_date: z.string().min(1, "End date is required"),
+  // start_date: z.string().min(1, "Start date is required"),
+  // end_date: z.string().min(1, "End date is required"),
   max_students: z.coerce.number().min(1, "Max students must be at least 1"),
   schedule: z.array(
     z.object({
@@ -63,8 +64,11 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const { data: instructors = [] } = useInstructors();
-  const { data: rooms = [] } = useRooms();
+  const { data: instructorsData } = useInstructors(1, 1000);
+  const instructors = instructorsData?.data || [];
+
+  const { data: roomsData } = useRooms();
+  const rooms = roomsData?.data || [];
 
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -72,11 +76,11 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
       course_id: courseId || "",
       instructor_id: "",
       room_id: "",
-      start_date: "",
-      end_date: "",
-      max_students: 5,
+      // start_date: "",
+      // end_date: "",
+      max_students: 1,
       schedule: [
-        { day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 }
+        { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
       ],
     },
   });
@@ -114,6 +118,13 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
   };
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+  const timeOptions = [];
+  for (let i = 0; i < 24; i++) {
+    const hour = i.toString().padStart(2, '0');
+    timeOptions.push(`${hour}:00`);
+    timeOptions.push(`${hour}:30`);
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -198,35 +209,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="start_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <FormField
-                control={form.control}
-                name="end_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <FormField
               control={form.control}
@@ -249,7 +232,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 })}
+                  onClick={() => append({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Slot
@@ -284,32 +267,54 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                     />
                   </div>
                   <div className="col-span-3">
-                    <FormField
-                      control={form.control}
-                      name={`schedule.${index}.start_time`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Start</FormLabel>
-                          <FormControl>
-                            <Input type="time" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={form.control}
+                        name={`schedule.${index}.start_time`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Start</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="max-h-[200px]">
+                                {timeOptions.map((time) => (
+                                  <SelectItem key={time} value={time}>
+                                    {time}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
                   </div>
                   <div className="col-span-3">
-                    <FormField
-                      control={form.control}
-                      name={`schedule.${index}.end_time`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">End</FormLabel>
-                          <FormControl>
-                            <Input type="time" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={form.control}
+                        name={`schedule.${index}.end_time`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">End</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="max-h-[200px]">
+                                {timeOptions.map((time) => (
+                                  <SelectItem key={time} value={time}>
+                                    {time}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
                   </div>
                   <div className="col-span-2">
                     <FormField

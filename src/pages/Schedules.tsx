@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import { useSchedules, useCourses, useInstructors, useRooms, queryKeys } from '@/hooks/useQueries';
+import { useSchedules, useCourses, useInstructors, useRooms, useAvailabilitySlots, queryKeys } from '@/hooks/useQueries';
 import {
   Table,
   TableBody,
@@ -47,13 +47,14 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/TableSkeleton';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { TimePicker } from '@/components/ui/time-picker';
 
 const scheduleSchema = z.object({
   course_id: z.string().min(1, "Course is required"),
   instructor_id: z.string().min(1, "Instructor is required"),
   room_id: z.string().min(1, "Room is required"),
-  start_date: z.string().min(1, "Start date is required"),
-  end_date: z.string().min(1, "End date is required"),
+  // start_date: z.string().min(1, "Start date is required"),
+  // end_date: z.string().min(1, "End date is required"),
   max_students: z.coerce.number().min(1, "Max students must be at least 1"),
   schedule: z.array(
     z.object({
@@ -79,11 +80,19 @@ export default function SchedulesPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const { data: schedulesData, isLoading, error } = useSchedules(page, limit);
+  const { data: availabilitySlotsData } = useAvailabilitySlots();
   const { data: coursesData } = useCourses();
-  const { data: instructorsData } = useInstructors();
+  const { data: instructorsData } = useInstructors(1, 1000);
   const { data: roomsData } = useRooms();
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+  const timeOptions = [];
+  for (let i = 0; i < 24; i++) {
+    const hour = i.toString().padStart(2, '0');
+    timeOptions.push(`${hour}:00`);
+    timeOptions.push(`${hour}:30`);
+  }
 
   const createForm = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
@@ -91,11 +100,11 @@ export default function SchedulesPage() {
       course_id: "",
       instructor_id: "",
       room_id: "",
-      start_date: "",
-      end_date: "",
-      max_students: 5,
+      // start_date: "",
+      // end_date: "",
+      max_students: 1,
       schedule: [
-        { day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 }
+        { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
       ],
     },
   });
@@ -106,11 +115,11 @@ export default function SchedulesPage() {
       course_id: "",
       instructor_id: "",
       room_id: "",
-      start_date: "",
-      end_date: "",
-      max_students: 5,
+      // start_date: "",
+      // end_date: "",
+      max_students: 1,
       schedule: [
-        { day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 }
+        { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
       ],
     },
   });
@@ -132,11 +141,11 @@ export default function SchedulesPage() {
         course_id: selectedSchedule.course_id || "",
         instructor_id: selectedSchedule.instructor_id || "",
         room_id: selectedSchedule.room_id || "",
-        start_date: selectedSchedule.start_date ? selectedSchedule.start_date.split('T')[0] : "",
-        end_date: selectedSchedule.end_date ? selectedSchedule.end_date.split('T')[0] : "",
+        // start_date: selectedSchedule.start_date ? selectedSchedule.start_date.split('T')[0] : "",
+        // end_date: selectedSchedule.end_date ? selectedSchedule.end_date.split('T')[0] : "",
         max_students: selectedSchedule.max_students || 5,
         schedule: selectedSchedule.schedule || selectedSchedule.slots || [
-          { day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 }
+          { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
         ],
       });
     }
@@ -253,17 +262,49 @@ export default function SchedulesPage() {
   if (error) return <div className="p-4 text-red-500">Error loading schedules</div>;
 
   const schedules = schedulesData?.data || [];
+  const availabilitySlots = availabilitySlotsData?.slots || [];
 
-  // Grouping Logic
+  // Build lookup map for availability slots by schedule_id
+  const availabilityMap: { [key: string]: any } = {};
+  availabilitySlots.forEach((slot: any) => {
+    if (slot.schedule_id) {
+      availabilityMap[slot.schedule_id] = slot;
+    }
+  });
+
+  // Grouping Logic with enrollment data from availability slots
   const groupedSchedules = schedules.reduce((acc: any, schedule: any) => {
     const key = `${schedule.course_id}-${schedule.instructor_id}-${schedule.room_id}`;
     if (!acc[key]) {
       acc[key] = {
         ...schedule,
-        items: []
+        items: [],
+        total_current_enrollments: 0,
+        total_pending_count: 0,
+        total_confirmed_count: 0,
+        total_max_students: 0,
+        instructor_name_from_slot: null,
+        room_name_from_slot: null,
       };
     }
     acc[key].items.push(schedule);
+    
+    // Get enrollment data from availability map
+    const availabilityData = availabilityMap[schedule.id];
+    if (availabilityData) {
+      acc[key].total_current_enrollments += availabilityData.current_enrollments || 0;
+      acc[key].total_pending_count += availabilityData.pending_count || 0;
+      acc[key].total_confirmed_count += availabilityData.confirmed_count || 0;
+      acc[key].total_max_students += availabilityData.max_students || 0;
+      // Store instructor_name and room_name from availability API as fallback
+      if (availabilityData.instructor_name && !acc[key].instructor_name_from_slot) {
+        acc[key].instructor_name_from_slot = availabilityData.instructor_name;
+      }
+      if (availabilityData.room_name && !acc[key].room_name_from_slot) {
+        acc[key].room_name_from_slot = availabilityData.room_name;
+      }
+    }
+    
     return acc;
   }, {});
   const groupedSchedulesArray = Object.values(groupedSchedules);
@@ -383,34 +424,7 @@ export default function SchedulesPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="start_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="end_date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+
 
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -419,7 +433,7 @@ export default function SchedulesPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => createAppend({ day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 })}
+                      onClick={() => createAppend({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                     >
                       <Plus className="h-4 w-4 mr-2" /> Add Slot
                     </Button>
@@ -461,7 +475,10 @@ export default function SchedulesPage() {
                             <FormItem>
                               <FormLabel className="text-xs">Start</FormLabel>
                               <FormControl>
-                                <Input type="time" {...field} />
+                                <TimePicker 
+                                  value={field.value} 
+                                  onChange={field.onChange} 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -476,7 +493,10 @@ export default function SchedulesPage() {
                             <FormItem>
                               <FormLabel className="text-xs">End</FormLabel>
                               <FormControl>
-                                <Input type="time" {...field} />
+                                <TimePicker 
+                                  value={field.value} 
+                                  onChange={field.onChange} 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -536,8 +556,7 @@ export default function SchedulesPage() {
               <TableHead>Course</TableHead>
               <TableHead>Instructor</TableHead>
               <TableHead>Room</TableHead>
-              <TableHead>Start Date</TableHead>
-              <TableHead>End Date</TableHead>
+              <TableHead>Current Enrollments</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -549,24 +568,24 @@ export default function SchedulesPage() {
                     {courseMap[group.course_id] || group.course_id || '-'}
                   </TableCell>
                   <TableCell>
-                    {instructorMap[group.instructor_id] || group.instructor_id || '-'}
+                    {instructorMap[group.instructor_id] || group.instructor_name_from_slot || group.instructor_id || '-'}
                   </TableCell>
                   <TableCell>
-                    {roomMap[group.room_id] || group.room_id || '-'}
+                    {roomMap[group.room_id] || group.room_name_from_slot || group.room_id || '-'}
                   </TableCell>
                   <TableCell>
-                    {group.start_date 
-                      ? new Date(group.start_date).toLocaleDateString() 
-                      : group.start_time 
-                        ? new Date(group.start_time).toLocaleDateString()
-                        : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {group.end_date 
-                      ? new Date(group.end_date).toLocaleDateString() 
-                      : group.end_time 
-                        ? new Date(group.end_time).toLocaleDateString()
-                        : '-'}
+                    <div className="flex flex-col">
+                      <span className="font-medium">{group.total_current_enrollments || 0}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {group.total_pending_count > 0 && (
+                          <span className="text-yellow-600">{group.total_pending_count} pending</span>
+                        )}
+                        {group.total_pending_count > 0 && group.total_confirmed_count > 0 && ' / '}
+                        {group.total_confirmed_count > 0 && (
+                          <span className="text-green-600">{group.total_confirmed_count} confirmed</span>
+                        )}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button 
@@ -704,34 +723,7 @@ export default function SchedulesPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="start_date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="end_date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -740,7 +732,7 @@ export default function SchedulesPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => editAppend({ day_of_week: "monday", start_time: "09:00", end_time: "10:00", duration: 60 })}
+                    onClick={() => editAppend({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                   >
                     <Plus className="h-4 w-4 mr-2" /> Add Slot
                   </Button>
@@ -782,7 +774,10 @@ export default function SchedulesPage() {
                           <FormItem>
                             <FormLabel className="text-xs">Start</FormLabel>
                             <FormControl>
-                              <Input type="time" {...field} />
+                              <TimePicker 
+                                value={field.value} 
+                                onChange={field.onChange} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -797,7 +792,10 @@ export default function SchedulesPage() {
                           <FormItem>
                             <FormLabel className="text-xs">End</FormLabel>
                             <FormControl>
-                              <Input type="time" {...field} />
+                              <TimePicker 
+                                value={field.value} 
+                                onChange={field.onChange} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

@@ -298,7 +298,7 @@ export default function Layout() {
                             </span>
                           </div>
                           <p className="text-sm text-gray-700">
-                            Booking ID: {notification.bookingId.slice(0, 8)}...
+                            Booking ID: {notification.bookingId ? notification.bookingId.slice(0, 8) : 'N/A'}...
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
                             Status: {notification.status}
