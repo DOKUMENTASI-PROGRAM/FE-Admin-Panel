@@ -17,6 +17,7 @@ export const queryKeys = {
   dashboard: () => [...queryKeys.all, 'dashboard'] as const,
   availabilitySlots: () => [...queryKeys.all, 'availabilitySlots'] as const,
   availableInstructors: () => [...queryKeys.all, 'availableInstructors'] as const,
+  notifications: () => [...queryKeys.all, 'notifications'] as const,
 };
 
 /**

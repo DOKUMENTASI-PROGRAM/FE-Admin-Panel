@@ -1,4 +1,4 @@
-export type PaymentStatus = 'pending' | 'success' | 'failed' | 'refunded';
+export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 export type PaymentMethod = 'cash' | 'BCA' | 'Initial Booking' | 'transfer' | 'virtual_account';
 export type PaymentType = 'monthly' | 'registration' | 'other';
 

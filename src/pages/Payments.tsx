@@ -51,7 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye, ZoomIn } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye, ZoomIn, Filter, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { useBookings } from '@/hooks/useQueries';
 import { cn } from '@/lib/utils';
@@ -72,6 +72,12 @@ export default function PaymentsPage() {
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
 
+  // Filter states
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [filterMethod, setFilterMethod] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string | null>(null);
+  const [openFilterPopover, setOpenFilterPopover] = useState<string | null>(null);
+
   // Form states
   const [formData, setFormData] = useState({
     booking_id: '',
@@ -81,7 +87,7 @@ export default function PaymentsPage() {
     payment_method: 'transfer' as PaymentMethod,
     // status is not in the requested payload, but we might keep it for local UI state if needed, 
     // or remove it from payload construction.
-    status: 'success' as PaymentStatus, 
+    status: 'pending' as PaymentStatus, 
     notes: '',
     payment_proof: '',
   });
@@ -132,7 +138,29 @@ export default function PaymentsPage() {
     queryFn: () => paymentService.getPayments({ search, page, limit }),
   });
 
-  const payments = paymentsResponse?.data?.payments || [];
+  const rawPayments = paymentsResponse?.data?.payments || [];
+
+  // Apply client-side filters
+  const payments = useMemo(() => {
+    let filtered = rawPayments;
+    
+    if (filterStatus) {
+      filtered = filtered.filter((p: Payment) => (p.status || 'pending') === filterStatus);
+    }
+    
+    if (filterMethod) {
+      filtered = filtered.filter((p: Payment) => p.payment_method === filterMethod);
+    }
+    
+    if (filterType) {
+      filtered = filtered.filter((p: Payment) => {
+        const type = p.payment_type || (p.payment_method === 'Initial Booking' ? 'Registration' : 'Monthly');
+        return type === filterType;
+      });
+    }
+    
+    return filtered;
+  }, [rawPayments, filterStatus, filterMethod, filterType]);
 
   // Mutations
   const createMutation = useMutation({
@@ -183,7 +211,7 @@ export default function PaymentsPage() {
       payment_date: new Date().toISOString().split('T')[0],
       payment_period: new Date().toISOString().slice(0, 7),
       payment_method: 'transfer',
-      status: 'success',
+      status: 'pending',
       notes: '',
       payment_proof: '',
     });
@@ -236,16 +264,12 @@ export default function PaymentsPage() {
   const handleEditClick = (payment: Payment) => {
     setSelectedPayment(payment);
     setFormData({
-      booking_id: payment.booking_id || '', // careful: if editing existing payment that might have student_id but no booking_id if legacy? 
-      // Assuming payment object has booking_id if we want to support edit fully. 
-      // But for now focusing on ADD. 
-      // Existing payments might not have booking_id in FE model if not updated.
-      // Let's rely on what we have.
+      booking_id: payment.booking_id || '',
       amount: String(payment.amount),
-      payment_date: new Date(payment.payment_date).toISOString().split('T')[0],
-      payment_period: new Date().toISOString().slice(0, 7), // Default for edit if missing, or we need to look it up? Payload doesn't return period usually.
-      payment_method: payment.payment_method,
-      status: payment.status || 'success',
+      payment_date: payment.payment_date ? new Date(payment.payment_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      payment_period: payment.payment_period ? payment.payment_period.split(' ').reverse().join('-').replace(/(\w+)-(\d+)/, (_, m, y) => `${y}-${('January,February,March,April,May,June,July,August,September,October,November,December'.split(',').indexOf(m) + 1).toString().padStart(2, '0')}`) : new Date().toISOString().slice(0, 7),
+      payment_method: payment.payment_method || 'cash',
+      status: payment.status || 'pending',
       notes: payment.notes || '',
       payment_proof: payment.payment_proof || '',
     });
@@ -272,7 +296,8 @@ export default function PaymentsPage() {
       payment_method: formData.payment_method,
       payment_period: new Date(formData.payment_period).toLocaleString('en-US', { month: 'long', year: 'numeric' }), // "December 2025"
       payment_proof: formData.payment_proof,
-      notes: formData.notes
+      notes: formData.notes,
+      status: formData.status
     };
 
     if (isEdit && selectedPayment) {
@@ -313,10 +338,61 @@ export default function PaymentsPage() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Student</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Method</TableHead>
+              <TableHead>
+                <Popover open={openFilterPopover === 'type'} onOpenChange={(open) => setOpenFilterPopover(open ? 'type' : null)}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 -ml-3 font-medium hover:bg-muted">
+                      Type
+                      {filterType ? <X className="ml-1 h-3 w-3 text-primary" onClick={(e) => { e.stopPropagation(); setFilterType(null); }} /> : <Filter className="ml-1 h-3 w-3 opacity-50" />}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-1" align="start">
+                    <div className="flex flex-col gap-1">
+                      <Button variant={filterType === null ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType(null); setOpenFilterPopover(null); }}>Semua</Button>
+                      <Button variant={filterType === 'Registration' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType('Registration'); setOpenFilterPopover(null); }}>Registration</Button>
+                      <Button variant={filterType === 'Monthly' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType('Monthly'); setOpenFilterPopover(null); }}>Monthly</Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </TableHead>
+              <TableHead>
+                <Popover open={openFilterPopover === 'method'} onOpenChange={(open) => setOpenFilterPopover(open ? 'method' : null)}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 -ml-3 font-medium hover:bg-muted">
+                      Method
+                      {filterMethod ? <X className="ml-1 h-3 w-3 text-primary" onClick={(e) => { e.stopPropagation(); setFilterMethod(null); }} /> : <Filter className="ml-1 h-3 w-3 opacity-50" />}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-1" align="start">
+                    <div className="flex flex-col gap-1">
+                      <Button variant={filterMethod === null ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod(null); setOpenFilterPopover(null); }}>Semua</Button>
+                      <Button variant={filterMethod === 'cash' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('cash'); setOpenFilterPopover(null); }}>Cash</Button>
+                      <Button variant={filterMethod === 'virtual_account' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('virtual_account'); setOpenFilterPopover(null); }}>BCA</Button>
+                      <Button variant={filterMethod === 'Initial Booking' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('Initial Booking'); setOpenFilterPopover(null); }}>Initial Booking</Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </TableHead>
               <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>
+                <Popover open={openFilterPopover === 'status'} onOpenChange={(open) => setOpenFilterPopover(open ? 'status' : null)}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 -ml-3 font-medium hover:bg-muted">
+                      Status
+                      {filterStatus ? <X className="ml-1 h-3 w-3 text-primary" onClick={(e) => { e.stopPropagation(); setFilterStatus(null); }} /> : <Filter className="ml-1 h-3 w-3 opacity-50" />}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-1" align="start">
+                    <div className="flex flex-col gap-1">
+                      <Button variant={filterStatus === null ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus(null); setOpenFilterPopover(null); }}>Semua</Button>
+                      <Button variant={filterStatus === 'paid' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('paid'); setOpenFilterPopover(null); }}>Lunas</Button>
+                      <Button variant={filterStatus === 'pending' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('pending'); setOpenFilterPopover(null); }}>Pending</Button>
+                      <Button variant={filterStatus === 'overdue' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('overdue'); setOpenFilterPopover(null); }}>Overdue</Button>
+                      <Button variant={filterStatus === 'cancelled' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('cancelled'); setOpenFilterPopover(null); }}>Cancelled</Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -332,19 +408,20 @@ export default function PaymentsPage() {
             ) : (
               payments.map((payment: Payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '-'}</TableCell>
                   <TableCell className="font-medium">
                     {payment.student_name || (payment.booking_id ? bookingNameMap[payment.booking_id] : null) || payment.student_id || '-'}
                   </TableCell>
                   <TableCell className="capitalize">{payment.payment_type || (payment.payment_method === 'Initial Booking' ? 'Registration' : 'Monthly')}</TableCell>
-                  <TableCell className="capitalize">{payment.payment_method.replace('_', ' ')}</TableCell>
+                  <TableCell className="capitalize">{payment.payment_method?.replace('_', ' ') || '-'}</TableCell>
                   <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                      ${(payment.status || 'success') === 'success' ? 'bg-green-100 text-green-800' : 
-                        (payment.status || 'success') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                      ${(payment.status || 'pending') === 'paid' ? 'bg-green-100 text-green-800' : 
+                        (payment.status || 'pending') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                        (payment.status || 'pending') === 'overdue' ? 'bg-orange-100 text-orange-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {(payment.status || 'success') === 'success' ? 'Lunas' : payment.status}
+                      {(payment.status || 'pending') === 'paid' ? 'Lunas' : payment.status}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -469,8 +546,9 @@ export default function PaymentsPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="success">Lunas</SelectItem>
-                      <SelectItem value="failed">Gagal</SelectItem>
+                      <SelectItem value="paid">Lunas</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
               </div>
@@ -616,8 +694,9 @@ export default function PaymentsPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="success">Lunas</SelectItem>
-                      <SelectItem value="failed">Gagal</SelectItem>
+                      <SelectItem value="paid">Lunas</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
               </div>
@@ -696,16 +775,17 @@ export default function PaymentsPage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Method</Label>
-                  <div className="font-medium capitalize">{selectedPayment.payment_method.replace('_', ' ')}</div>
+                  <div className="font-medium capitalize">{selectedPayment.payment_method?.replace('_', ' ') || '-'}</div>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
                   <div>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                      ${(selectedPayment.status || 'success') === 'success' ? 'bg-green-100 text-green-800' : 
-                        (selectedPayment.status || 'success') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                      ${(selectedPayment.status || 'pending') === 'paid' ? 'bg-green-100 text-green-800' : 
+                        (selectedPayment.status || 'pending') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                        (selectedPayment.status || 'pending') === 'overdue' ? 'bg-orange-100 text-orange-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {(selectedPayment.status || 'success') === 'success' ? 'Lunas' : selectedPayment.status}
+                      {(selectedPayment.status || 'pending') === 'paid' ? 'Lunas' : selectedPayment.status}
                     </span>
                   </div>
                 </div>

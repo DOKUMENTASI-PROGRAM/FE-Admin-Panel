@@ -1,181 +1,166 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from '@/components/ui/use-toast';
-import { queryKeys } from './useQueries';
-import { supabase } from '@/lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+  import { useEffect } from 'react';
+  import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+  import { supabase } from '@/lib/supabase';
+  import { queryKeys } from './useQueries';
+  import { toast } from '@/components/ui/use-toast';
 
-// Notification types matching the previous interface
-export interface BookingNotification {
-  eventType: 'booking.created' | 'booking.cancelled' | 'booking.updated';
-  bookingId: string;
-  userId: string;
-  courseId: string;
-  status: string;
-  timestamp: string;
-}
+  export interface NotificationItem {
+    id: string;
+    type: 'info' | 'warning' | 'urgent' | 'error';
+    title: string;
+    message: string;
+    booking_id?: string;
+    created_at: string;
+    is_read: boolean;
+  }
 
-export const useAdminNotifications = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastNotification, setLastNotification] = useState<BookingNotification | null>(null);
-  const [notifications, setNotifications] = useState<BookingNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const queryClient = useQueryClient();
+  export const useAdminNotifications = () => {
+    const queryClient = useQueryClient();
 
-  // Handle incoming notifications from Supabase Realtime
-  const handleRealtimeEvent = useCallback((payload: any) => {
-    console.log('🔔 Realtime event received - FULL PAYLOAD:', JSON.stringify(payload, null, 2));
-    
-    // Map Supabase payload to Notification format
-    // Assuming 'bookings' table changes
-    const newData = payload.new;
-    // Supabase Realtime uses 'eventType' in uppercase: 'INSERT', 'UPDATE', 'DELETE'
-    const eventTypeStr = payload.eventType;
+    // 1. FETCH Query
+    const { data: notifications = [] } = useQuery({
+      queryKey: queryKeys.notifications(),
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (error) throw error;
+        return data as NotificationItem[];
+      },
+      // Remove polling, use Realtime instead
+    });
 
-    console.log('📦 Event Type:', eventTypeStr);
-    console.log('📦 New Data:', JSON.stringify(newData, null, 2));
+    // Subscribe to Realtime changes
+    useEffect(() => {
+      // Use a unique channel name to prevent "mismatch between server and client bindings" errors
+      // which happen when the same channel name is reused before the previous one is fully cleaned up.
+      const channelId = `admin-notifications-${Date.now()}`;
+      console.log(`🔌 Subscribing to Supabase Realtime (Channel: ${channelId})...`);
+      
+      const channel = supabase
+        .channel(channelId)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+          },
+          (payload) => {
+            console.log('🔔 Realtime INSERT received:', payload);
+            queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
+            
+            const newNotif = payload.new as NotificationItem;
+            toast({
+                title: newNotif.title,
+                description: newNotif.message,
+                variant: newNotif.type === 'error' ? 'destructive' : 'default',
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+          },
+          (payload) => {
+            console.log('🔔 Realtime UPDATE received:', payload);
+            queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
+          }
+        )
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') console.log('✅ Realtime Subscribed');
+          if (status === 'CHANNEL_ERROR') {
+             console.error('❌ Realtime Connection Error:', err);
+             // Verify RLS policies and if table 'notifications' is in 'supabase_realtime' publication
+          }
+        });
 
-    if (!newData || Object.keys(newData).length === 0) {
-      console.warn('⚠️ No new data in payload, skipping notification');
-      return;
-    }
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [queryClient]);
 
-    // Debug payload structure to find correct ID field
-    console.log('🔑 New Data Keys:', Object.keys(newData));
-    console.log('🔑 Possible ID fields - id:', newData.id, ', booking_id:', newData.booking_id);
-    console.log('🔑 Status field:', newData.status);
+    // Derived state from the query cache
+    const unreadCount = notifications.filter(n => !n.is_read).length;
 
-    let notificationType: BookingNotification['eventType'] = 'booking.updated';
-    
-    if (eventTypeStr === 'INSERT') {
-      notificationType = 'booking.created';
-    } else if (eventTypeStr === 'UPDATE') {
-       if (newData.status === 'cancelled') {
-         notificationType = 'booking.cancelled';
-       } else {
-         notificationType = 'booking.updated';
-       }
-    }
+    // 2. MUTATION: Mark single as read
+    const { mutateAsync: markAsRead } = useMutation({
+      mutationFn: async (id: string) => {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', id);
+        if (error) throw error;
+      },
+      onMutate: async (id) => {
+        // Optimistic update
+        await queryClient.cancelQueries({ queryKey: queryKeys.notifications() });
+        const previousNotifications = queryClient.getQueryData<NotificationItem[]>(queryKeys.notifications());
 
-    // Robust ID extraction - try multiple possible field names
-    const bookingIdRaw = newData.id || newData.booking_id || newData.uuid || newData._id;
-    const bookingId = bookingIdRaw ? String(bookingIdRaw) : 'unknown';
-    const statusValue = newData.status || newData.booking_status || 'N/A';
+        if (previousNotifications) {
+          queryClient.setQueryData<NotificationItem[]>(
+            queryKeys.notifications(),
+            previousNotifications.map(n => n.id === id ? { ...n, is_read: true } : n)
+          );
+        }
 
-    console.log('✅ Extracted - bookingId:', bookingId, ', status:', statusValue);
+        return { previousNotifications };
+      },
+      onError: (err, newTodo, context) => {
+        if (context?.previousNotifications) {
+          queryClient.setQueryData(queryKeys.notifications(), context.previousNotifications);
+        }
+        console.error('Error marking as read:', err);
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
+      },
+    });
 
-    const notification: BookingNotification = {
-      eventType: notificationType,
-      bookingId: bookingId,
-      userId: newData.user_id || newData.student_id || 'unknown',
-      courseId: newData.course_id || '',
-      status: statusValue,
-      timestamp: new Date().toISOString(),
+    // 3. MUTATION: Mark ALL as read
+    const { mutateAsync: markAllAsRead } = useMutation({
+      mutationFn: async () => {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .is('is_read', false);
+        if (error) throw error;
+      },
+      onMutate: async () => {
+         await queryClient.cancelQueries({ queryKey: queryKeys.notifications() });
+         const previousNotifications = queryClient.getQueryData<NotificationItem[]>(queryKeys.notifications());
+
+         if (previousNotifications) {
+            queryClient.setQueryData<NotificationItem[]>(
+              queryKeys.notifications(),
+              previousNotifications.map(n => ({ ...n, is_read: true }))
+            );
+         }
+         return { previousNotifications };
+      },
+      onSettled: () => {
+         queryClient.invalidateQueries({ queryKey: queryKeys.notifications() });
+      },
+    });
+
+    // 4. Clear/Archive (mapped to mark all read for now)
+    const clearNotifications = async () => {
+      await markAllAsRead();
     };
 
-    setLastNotification(notification);
-    setNotifications(prev => [notification, ...prev]);
-    setUnreadCount(prev => prev + 1);
-
-    // Show toast notification
-    switch (notificationType) {
-      case 'booking.created':
-        toast({
-          title: '🎉 Booking Baru!',
-          description: `Booking Status: ${notification.status}`,
-        });
-        break;
-
-      case 'booking.cancelled':
-        toast({
-          title: '❌ Booking Dibatalkan',
-          description: `Booking ID: ${notification.bookingId.slice(0, 8)}...`,
-          variant: 'destructive',
-        });
-        break;
-
-      case 'booking.updated':
-        toast({
-          title: '✏️ Booking Diupdate',
-          description: `Status: ${notification.status}`,
-        });
-        break;
-    }
-
-    // Invalidate booking queries to refresh data
-    queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
-    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard() });
-  }, [queryClient]);
-
-  const markAllAsRead = useCallback(() => {
-    setUnreadCount(0);
-  }, []);
-
-  const clearNotifications = useCallback(() => {
-    setNotifications([]);
-    setUnreadCount(0);
-  }, []);
-
-  // Connect to Supabase Realtime
-  const connect = useCallback(() => {
-    if (channelRef.current) return;
-
-    console.log('🔌 Connecting to Supabase Realtime...');
-    
-    // Subscribe to changes in public.bookings table
-    const channel = supabase
-      .channel('admin-dashboard-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'bookings',
-        },
-        (payload) => {
-          handleRealtimeEvent(payload);
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Subscribed to Supabase Realtime');
-          setIsConnected(true);
-        } else if (status === 'CLOSED') {
-            console.log('❌ Disconnected from Supabase Realtime');
-            setIsConnected(false);
-            channelRef.current = null;
-        }
-      });
-
-    channelRef.current = channel;
-
-  }, [handleRealtimeEvent]);
-
-  // Disconnect
-  const disconnect = useCallback(() => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-      setIsConnected(false);
-    }
-  }, []);
-
-  // Connect on mount, disconnect on unmount
-  useEffect(() => {
-    connect();
-    return () => {
-      disconnect();
+    return {
+      isConnected: true, // Assuming connected handled by Supabase client
+      notifications,
+      unreadCount,
+      markAllAsRead,
+      markAsRead,
+      clearNotifications,
+      reconnect: () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications() }),
     };
-  }, [connect, disconnect]);
-
-  return {
-    isConnected,
-    lastNotification,
-    notifications,
-    unreadCount,
-    markAllAsRead,
-    clearNotifications,
-    reconnect: connect,
   };
-};

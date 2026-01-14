@@ -18,6 +18,7 @@ import SchedulesPage from '@/pages/Schedules'
 import ScheduleDetailsPage from '@/pages/ScheduleDetails'
 import ReportsPage from '@/pages/Reports'
 import PaymentsPage from '@/pages/Payments'
+import NotificationsPage from '@/pages/Notifications'
 import { useEffect } from 'react'
 import { authService } from '@/services/authService'
 
@@ -49,6 +50,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/students" element={<StudentsPage />} />
 
