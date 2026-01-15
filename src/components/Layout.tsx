@@ -39,9 +39,9 @@ export default function Layout() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const { isConnected, notifications, unreadCount, markAllAsRead, clearNotifications } = useAdminNotifications();
+  const { isConnected, unreadCount } = useAdminNotifications();
   
-  const [showNotifications, setShowNotifications] = useState(false);
+
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [user, setUser] = useState<any>(null);

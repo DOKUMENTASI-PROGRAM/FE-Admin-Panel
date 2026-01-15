@@ -131,7 +131,29 @@ export function useCourses(page?: number, limit?: number) {
       return { data: list, total: list.length };
     },
   });
+}
 
+/**
+ * Fetch ALL courses for batch grouping
+ */
+export function useAllCourses() {
+  return useQuery({
+    queryKey: [...queryKeys.courses(), 'all'],
+    queryFn: async () => {
+      // Use a large limit to get all courses
+      const res = await api.get('/api/admin/courses?page=1&limit=1000');
+      const raw = res.data.data;
+
+      // Handle paginated structure or direct array
+      let allCourses: any[] = [];
+      if (raw && !Array.isArray(raw) && raw.courses) {
+        allCourses = raw.courses;
+      } else if (Array.isArray(raw)) {
+        allCourses = raw;
+      }
+      return allCourses;
+    },
+  });
 }
 
 /**

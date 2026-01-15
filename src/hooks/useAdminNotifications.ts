@@ -112,7 +112,7 @@
 
         return { previousNotifications };
       },
-      onError: (err, newTodo, context) => {
+      onError: (err, _newTodo, context) => {
         if (context?.previousNotifications) {
           queryClient.setQueryData(queryKeys.notifications(), context.previousNotifications);
         }

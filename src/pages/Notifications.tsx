@@ -13,7 +13,7 @@ export default function NotificationsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-800">Notifications</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your system notifications and alerts.</p>
         </div>
-        <Button variant="outline" onClick={markAllAsRead} className="gap-2">
+        <Button variant="outline" onClick={() => markAllAsRead()} className="gap-2">
           <CheckCheck className="h-4 w-4" />
           Mark all as read
         </Button>

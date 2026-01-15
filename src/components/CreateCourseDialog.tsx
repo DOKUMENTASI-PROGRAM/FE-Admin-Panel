@@ -59,7 +59,7 @@ export function CreateCourseDialog() {
       description: "",
       level: "beginner",
       price_per_session: 0,
-      duration_minutes: 60,
+      duration_minutes: 30,
       max_students: 1,
       instrument: "",
       type_course: "privat",
@@ -213,9 +213,21 @@ export function CreateCourseDialog() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Instrument</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Piano" {...field} />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select instrument" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Piano">Piano</SelectItem>
+                      <SelectItem value="Guitar">Guitar</SelectItem>
+                      <SelectItem value="Vokal">Vokal</SelectItem>
+                      <SelectItem value="Drum">Drum</SelectItem>
+                      <SelectItem value="Bass">Bass</SelectItem>
+                      <SelectItem value="Keyboard">Keyboard</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

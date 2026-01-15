@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import { useCourses, queryKeys } from '@/hooks/useQueries';
+import { useAllCourses, queryKeys } from '@/hooks/useQueries';
 import { CreateCourseDialog } from "@/components/CreateCourseDialog";
 import {
   Table,
@@ -63,16 +63,68 @@ const updateCourseSchema = z.object({
 type UpdateCourseFormValues = z.infer<typeof updateCourseSchema>;
 
 export default function CoursesPage() {
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
+  
+  // Dialog states
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Pagination state (client-side for courses list)
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   
-  const { data: coursesData, isLoading, error } = useCourses(page, limit);
+  // Fetch ALL courses
+  const { data: allCourses = [], isLoading, error } = useAllCourses();
+
+  // Reset page when batch changes
+  useEffect(() => {
+    setPage(1);
+  }, [selectedBatch]);
+
+  // Compute batches (instruments)
+  const batches = useMemo(() => {
+    const map = new Map<string, {
+      instrument: string;
+      total: number;
+      active: number;
+      types: Set<string>;
+    }>();
+
+    allCourses.forEach((course: any) => {
+      const instrument = course.instrument || 'Unassigned';
+      if (!map.has(instrument)) {
+        map.set(instrument, {
+          instrument,
+          total: 0,
+          active: 0,
+          types: new Set(),
+        });
+      }
+      const batch = map.get(instrument)!;
+      batch.total++;
+      if (course.is_active) batch.active++;
+      if (course.type_course) batch.types.add(course.type_course);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.instrument.localeCompare(b.instrument));
+  }, [allCourses]);
+
+  // Derived courses for selected batch
+  const filteredCourses = useMemo(() => {
+    if (!selectedBatch) return [];
+    return allCourses.filter((c: any) => (c.instrument || 'Unassigned') === selectedBatch);
+  }, [allCourses, selectedBatch]);
+
+  // Client-side pagination for filtered courses
+  const paginatedCourses = useMemo(() => {
+    const startIndex = (page - 1) * limit;
+    return filteredCourses.slice(startIndex, startIndex + limit);
+  }, [filteredCourses, page, limit]);
 
   const editForm = useForm<UpdateCourseFormValues>({
     resolver: zodResolver(updateCourseSchema),
@@ -171,85 +223,150 @@ export default function CoursesPage() {
   if (isLoading) return <TableSkeleton columnCount={7} rowCount={10} />;
   if (error) return <div>Error loading courses</div>;
 
-  const courses = coursesData?.data || [];
-  const totalCourses = coursesData?.total || 0;
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Courses</h2>
+        <div className="flex items-center gap-4">
+            {selectedBatch && (
+                <Button variant="outline" onClick={() => setSelectedBatch(null)}>
+                    &larr; Back to Batches
+                </Button>
+            )}
+            <h2 className="text-3xl font-bold tracking-tight">
+                {selectedBatch ? `Courses: ${selectedBatch}` : "Course Batches"}
+            </h2>
+        </div>
         <CreateCourseDialog />
       </div>
       
       <div className="border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-
-              <TableHead>Instrument</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Level</TableHead>
-              <TableHead>Status</TableHead>
-
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {courses.map((course: any) => (
-              <TableRow key={course.id}>
-                <TableCell className="font-medium">{course.title}</TableCell>
-
-                <TableCell>{course.instrument || '-'}</TableCell>
-                <TableCell className="capitalize">{course.type_course || '-'}</TableCell>
-                <TableCell>{course.level}</TableCell>
-                <TableCell>
-                  <Badge variant={course.is_active ? 'default' : 'secondary'}>
-                    {course.is_active ? 'active' : 'inactive'}
-                  </Badge>
-                </TableCell>
-
-                <TableCell>
-                  <div className="flex space-x-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleOpenView(course)}
-                      title="View Details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleOpenEdit(course)}
-                      title="Edit"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleOpenDelete(course)}
-                      title="Delete"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <PaginationControls
-          currentPage={page}
-          totalCount={totalCourses}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={setLimit}
-          isLoading={isLoading}
-        />
+        {!selectedBatch ? (
+            // BATCH VIEW
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Instrument</TableHead>
+                        <TableHead>Total Courses</TableHead>
+                        <TableHead>Active Courses</TableHead>
+                        <TableHead>Types</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {batches.map((batch) => (
+                        <TableRow key={batch.instrument}>
+                            <TableCell className="font-medium text-sm">{batch.instrument}</TableCell>
+                            <TableCell>
+                                <Badge variant="secondary" className="text-xs">
+                                    {batch.total} Courses
+                                </Badge>
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                    {batch.active} Active
+                                </Badge>
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                    {Array.from(batch.types).map(t => (
+                                        <Badge key={t} variant="outline" className="capitalize text-xs">
+                                            {t}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button size="sm" onClick={() => setSelectedBatch(batch.instrument)}>
+                                    See Detail
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                    {batches.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                No courses found. Create a course to get started.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        ) : (
+            // COURSE VIEW (Filtered)
+            <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Instrument</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Level</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedCourses.map((course: any) => (
+                      <TableRow key={course.id}>
+                        <TableCell className="font-medium">{course.title}</TableCell>
+                        <TableCell>{course.instrument || '-'}</TableCell>
+                        <TableCell className="capitalize">{course.type_course || '-'}</TableCell>
+                        <TableCell>{course.level}</TableCell>
+                        <TableCell>
+                          <Badge variant={course.is_active ? 'default' : 'secondary'}>
+                            {course.is_active ? 'active' : 'inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleOpenView(course)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleOpenEdit(course)}
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleOpenDelete(course)}
+                              title="Delete"
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {paginatedCourses.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                No courses found in this batch.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+                <PaginationControls
+                  currentPage={page}
+                  totalCount={filteredCourses.length}
+                  limit={limit}
+                  onPageChange={setPage}
+                  onLimitChange={setLimit}
+                  isLoading={isLoading}
+                />
+            </>
+        )}
       </div>
 
       {/* View Course Dialog */}
@@ -368,9 +485,21 @@ export default function CoursesPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Instrument</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select instrument" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Piano">Piano</SelectItem>
+                          <SelectItem value="Guitar">Guitar</SelectItem>
+                          <SelectItem value="Vokal">Vokal</SelectItem>
+                          <SelectItem value="Drum">Drum</SelectItem>
+                          <SelectItem value="Bass">Bass</SelectItem>
+                          <SelectItem value="Keyboard">Keyboard</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
