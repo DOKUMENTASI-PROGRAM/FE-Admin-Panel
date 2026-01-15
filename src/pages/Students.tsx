@@ -71,6 +71,7 @@ const createStudentSchema = z.object({
   address: z.string().min(5, "Alamat wajib diisi"),
   birth_place: z.string().min(2, "Tempat lahir wajib diisi"),
   birth_date: z.string().min(1, "Tanggal lahir wajib diisi"),
+  occupation: z.enum(['pelajar', 'mahasiswa', 'pekerja_swasta', 'pns', 'wiraswasta']).optional(),
   experience_level: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
   type_course: z.enum(['reguler', 'hobby', 'karyawan', 'ministry', 'privat']),
 
@@ -90,6 +91,7 @@ const updateStudentSchema = z.object({
   // Student Data
   display_name: z.string().min(2, "Nama minimal 2 karakter").optional().or(z.literal('')),
   email: z.string().email("Format email tidak valid").optional().or(z.literal('')),
+  occupation: z.enum(['pelajar', 'mahasiswa', 'pekerja_swasta', 'pns', 'wiraswasta']).optional(),
   booking_id: z.string().uuid().optional().or(z.literal('')),
   user_id: z.string().uuid().optional().or(z.literal('')),
   instrument: z.string().optional().or(z.literal('')),
@@ -377,6 +379,7 @@ export default function StudentsPage() {
       address: "",
       birth_place: "",
       birth_date: "",
+      occupation: undefined,
       experience_level: "beginner",
       type_course: undefined as any, // Will be set by user selection
       school: "",
@@ -419,6 +422,7 @@ export default function StudentsPage() {
       editForm.reset({
         display_name: selectedStudent.display_name || selectedStudent.full_name || "",
         email: selectedStudent.email || "",
+        occupation: selectedStudent.occupation || undefined,
         course_id: selectedStudent.course_id || "",
         first_choice_slot_id: selectedStudent.first_choice_slot_id || "",
         second_choice_slot_id: selectedStudent.second_choice_slot_id || "",
@@ -786,6 +790,30 @@ export default function StudentsPage() {
                       )}
                     />
                   </div>
+                  <FormField
+                      control={createForm.control}
+                      name="occupation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status Individu</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pilih status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="pelajar">Pelajar</SelectItem>
+                              <SelectItem value="mahasiswa">Mahasiswa</SelectItem>
+                              <SelectItem value="pekerja_swasta">Pekerja Swasta</SelectItem>
+                              <SelectItem value="pns">PNS</SelectItem>
+                              <SelectItem value="wiraswasta">Wiraswasta</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={createForm.control}
@@ -1374,6 +1402,10 @@ export default function StudentsPage() {
                     <label className="text-sm font-medium text-gray-500">Kelas</label>
                     <p className="text-sm">{selectedStudent.applicant_class || '-'}</p>
                   </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Status Individu</label>
+                    <p className="text-sm capitalize">{selectedStudent.occupation ? selectedStudent.occupation.replace(/_/g, ' ') : '-'}</p>
+                  </div>
                 </div>
               </div>
 
@@ -1547,6 +1579,30 @@ export default function StudentsPage() {
                       <FormControl>
                         <Input placeholder="Alamat lengkap" {...field} value={field.value || ""} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="occupation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status Individu</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="pelajar">Pelajar</SelectItem>
+                          <SelectItem value="mahasiswa">Mahasiswa</SelectItem>
+                          <SelectItem value="pekerja_swasta">Pekerja Swasta</SelectItem>
+                          <SelectItem value="pns">PNS</SelectItem>
+                          <SelectItem value="wiraswasta">Wiraswasta</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

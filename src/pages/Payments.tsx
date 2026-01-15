@@ -245,7 +245,7 @@ export default function PaymentsPage() {
 
     try {
       setIsUploading(true);
-      const url = await uploadToStorage(file, 'student-photos', 'payments');
+      const url = await uploadToStorage(file, 'payment-proofs', '');
       setFormData(prev => ({ ...prev, payment_proof: url }));
       toast({ title: 'Success', description: 'Image uploaded successfully' });
     } catch (error: any) {

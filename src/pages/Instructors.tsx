@@ -41,6 +41,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { MultiSelect, Option } from '@/components/ui/multi-select';
+
+const SPECIALIZATION_OPTIONS: Option[] = [
+  { label: 'Vokal', value: 'Vokal' },
+  { label: 'Piano', value: 'Piano' },
+  { label: 'Drum', value: 'Drum' },
+  { label: 'Bass', value: 'Bass' },
+  { label: 'Guitar', value: 'Guitar' },
+];
+
+const TEACHING_CATEGORY_OPTIONS: Option[] = [
+  { label: 'Reguler', value: 'Reguler' },
+  { label: 'Hobby', value: 'Hobby' },
+  { label: 'Karyawan', value: 'Karyawan' },
+  { label: 'Ministry', value: 'Ministry' },
+  { label: 'Privat', value: 'Privat' },
+];
 
 // Schema matching documentation: POST /api/admin/instructor
 const instructorSchema = z.object({
@@ -48,7 +65,8 @@ const instructorSchema = z.object({
   full_name: z.string().min(2, "Full name is required"),
   wa_number: z.string().optional(),
   bio: z.string().optional(),
-  specialization: z.string().optional(),
+  specialization: z.array(z.string()).optional(),
+  teaching_categories: z.array(z.string()).optional(),
   photo_url: z.string().optional(),
 });
 
@@ -81,7 +99,7 @@ export default function InstructorsPage() {
       full_name: "",
       wa_number: "",
       bio: "",
-      specialization: "",
+      specialization: [],
       photo_url: "",
     },
   });
@@ -92,7 +110,7 @@ export default function InstructorsPage() {
       full_name: "",
       wa_number: "",
       bio: "",
-      specialization: "",
+      specialization: [],
       photo_url: "",
     },
   });
@@ -107,6 +125,7 @@ export default function InstructorsPage() {
         wa_number: newInstructor.wa_number,
         bio: newInstructor.bio,
         specialization: newInstructor.specialization,
+        teaching_categories: newInstructor.teaching_categories,
         photo_url: newInstructor.photo_url
       });
     },
@@ -176,7 +195,8 @@ export default function InstructorsPage() {
       full_name: instructor.full_name || "",
       wa_number: instructor.wa_number || "",
       bio: instructor.bio || "",
-      specialization: instructor.specialization || "",
+      specialization: Array.isArray(instructor.specialization) ? instructor.specialization : [],
+      teaching_categories: Array.isArray(instructor.teaching_categories) ? instructor.teaching_categories : [],
       photo_url: instructor.photo_url || "",
     });
     setEditPhotoPreview(instructor.photo_url || null);
@@ -307,6 +327,7 @@ export default function InstructorsPage() {
             wa_number: '-',
             bio: '-',
             specialization: '-',
+            teaching_categories: '-',
             photo_url: '-',
           };
         }
@@ -383,7 +404,32 @@ export default function InstructorsPage() {
                     <FormItem>
                       <FormLabel>Specialization</FormLabel>
                       <FormControl>
-                        <Input placeholder="Guitar, Piano, Violin" {...field} />
+                        <MultiSelect
+                          options={SPECIALIZATION_OPTIONS}
+                          selected={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Select specializations..."
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="teaching_categories"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Teaching Categories</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={TEACHING_CATEGORY_OPTIONS}
+                          selected={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Select categories..."
+                          className="w-full"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -484,6 +530,7 @@ export default function InstructorsPage() {
               <TableHead>Email</TableHead>
               <TableHead>WhatsApp</TableHead>
               <TableHead>Specialization</TableHead>
+              <TableHead>Teaching Categories</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -494,7 +541,8 @@ export default function InstructorsPage() {
                   <TableCell className="font-medium">{instructor.full_name}</TableCell>
                   <TableCell>{instructor.email || '-'}</TableCell>
                   <TableCell>{instructor.wa_number || '-'}</TableCell>
-                  <TableCell>{instructor.specialization || '-'}</TableCell>
+                  <TableCell>{Array.isArray(instructor.specialization) ? instructor.specialization.join(', ') : (instructor.specialization || '-')}</TableCell>
+                  <TableCell>{Array.isArray(instructor.teaching_categories) ? instructor.teaching_categories.join(', ') : (instructor.teaching_categories || '-')}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button 
                       variant="ghost" 
@@ -526,7 +574,7 @@ export default function InstructorsPage() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-4 text-gray-500">
+                <TableCell colSpan={6} className="text-center py-4 text-gray-500">
                   No instructors found
                 </TableCell>
               </TableRow>
@@ -570,7 +618,9 @@ export default function InstructorsPage() {
                   <div className="text-center space-y-2">
                     <h3 className="text-2xl font-bold">{selectedInstructor.full_name}</h3>
                     <Badge variant="secondary" className="px-3 py-1 text-base">
-                      {selectedInstructor.specialization || 'General Instructor'}
+                      {Array.isArray(selectedInstructor.specialization) 
+                        ? selectedInstructor.specialization.join(', ') 
+                        : (selectedInstructor.specialization || 'General Instructor')}
                     </Badge>
                   </div>
                 </div>
@@ -670,7 +720,32 @@ export default function InstructorsPage() {
                   <FormItem>
                     <FormLabel>Specialization</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                        <MultiSelect
+                          options={SPECIALIZATION_OPTIONS}
+                          selected={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Select specializations..."
+                          className="w-full"
+                        />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="teaching_categories"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teaching Categories</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={TEACHING_CATEGORY_OPTIONS}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Select categories..."
+                        className="w-full"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

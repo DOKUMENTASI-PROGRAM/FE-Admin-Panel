@@ -824,10 +824,14 @@ export default function BookingsPage() {
                 <p className="font-medium">{detailBooking?.applicant_school || schoolMap[detailBooking?.user_id] || '-'}</p>
               </div>
               <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">Status Individu</Label>
+                <p className="font-medium capitalize">{detailBooking?.occupation ? detailBooking.occupation.replace(/_/g, ' ') : '-'}</p>
+              </div>
+              <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">Kursus</Label>
                 <p className="font-medium">{detailBooking?.courses?.title || courseMap[detailBooking?.course_id] || detailBooking?.course_id || '-'}</p>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 flex flex-col items-start">
                 <Label className="text-sm text-muted-foreground">Status</Label>
                 <Badge variant={detailBooking?.status === 'confirmed' ? 'default' : 'secondary'}>
                   {detailBooking?.status || '-'}
@@ -881,19 +885,33 @@ export default function BookingsPage() {
               <div className="space-y-2 mt-4 pt-4 border-t">
                 <Label className="text-sm text-muted-foreground">Bukti Pembayaran</Label>
                 <div 
-                  className="rounded-lg overflow-hidden border cursor-pointer relative group"
+                  className="rounded-lg overflow-hidden border cursor-pointer relative group bg-gray-50"
                   onClick={() => setIsImageZoomed(true)}
                 >
                   <img 
                     src={detailBooking.payment_proof} 
                     alt="Bukti Pembayaran" 
-                    className="w-full max-h-64 object-contain bg-gray-50"
+                    className="w-full h-auto max-h-64 object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement?.classList.add('hidden');
+                    }}
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                    <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">Klik gambar untuk memperbesar</p>
+                <div className="flex justify-between items-center">
+                    <p className="text-xs text-muted-foreground">Klik gambar untuk memperbesar</p>
+                    <a 
+                        href={detailBooking.payment_proof} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-xs text-blue-600 hover:underline"
+                    >
+                        Buka di tab baru
+                    </a>
+                </div>
               </div>
             )}
           </div>
