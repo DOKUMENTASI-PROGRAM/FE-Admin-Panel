@@ -49,6 +49,7 @@ const SPECIALIZATION_OPTIONS: Option[] = [
   { label: 'Drum', value: 'Drum' },
   { label: 'Bass', value: 'Bass' },
   { label: 'Guitar', value: 'Guitar' },
+  { label: 'Keyboard', value: 'Keyboard' }
 ];
 
 const TEACHING_CATEGORY_OPTIONS: Option[] = [

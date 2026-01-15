@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/services/api";
-import { useInstructors, useRooms } from "@/hooks/useQueries";
+import { useInstructors, useRooms, useCourses } from "@/hooks/useQueries";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,6 +70,9 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
   const { data: roomsData } = useRooms();
   const rooms = roomsData?.data || [];
 
+  const { data: coursesData } = useCourses(1, 1000);
+  const courses = coursesData?.data || [];
+
   const form = useForm<ScheduleFormValues>({
     resolver: zodResolver(scheduleSchema),
     defaultValues: {
@@ -88,6 +91,36 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "schedule",
+  });
+
+  const selectedCourseId = form.watch("course_id");
+  
+  // Find the selected course object
+  // If courseId prop is passed (e.g. from Courses page), we try to find that course in the list
+  const activeCourseId = courseId || selectedCourseId;
+  const selectedCourse = courses.find((c: any) => c.id === activeCourseId);
+
+  const filteredInstructors = instructors.filter((instructor: any) => {
+    if (!activeCourseId) return true; 
+    if (!selectedCourse) return true;
+
+    // Normalizing strings for comparison
+    const courseInstrument = selectedCourse.instrument?.toLowerCase();
+    const courseType = selectedCourse.type_course?.toLowerCase();
+    
+    if (!courseInstrument || !courseType) return true;
+
+    // Check specialization (array of strings)
+    // Instructor specialization must include the course instrument
+    const hasSpecialization = Array.isArray(instructor.specialization) && 
+      instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
+
+    // Check teaching_categories (array of strings)
+    // Instructor categories must include the course type
+    const hasCategory = Array.isArray(instructor.teaching_categories) && 
+      instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
+
+    return hasSpecialization && hasCategory;
   });
 
   const mutation = useMutation({
@@ -147,10 +180,21 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                 name="course_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course ID</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Course UUID" />
-                    </FormControl>
+                    <FormLabel>Course</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select course" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {courses.map((course: any) => (
+                          <SelectItem key={course.id} value={course.id}>
+                            {course.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -164,14 +208,14 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Instructor</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedCourseId && !courseId}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select instructor" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {instructors.map((instructor: any) => (
+                        {filteredInstructors.map((instructor: any) => (
                           <SelectItem key={instructor.id} value={instructor.id}>
                             {instructor.name}
                           </SelectItem>

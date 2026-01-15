@@ -109,7 +109,7 @@ export default function CoursesPage() {
   // Update course - PUT /courses/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateCourseFormValues }) => {
-      return api.put(`/courses/${id}`, data);
+      return api.put(`/api/courses/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses() });
@@ -130,7 +130,7 @@ export default function CoursesPage() {
   // Delete course - DELETE /courses/:id
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      return api.delete(`/courses/${id}`);
+      return api.delete(`/api/courses/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses() });
@@ -388,9 +388,9 @@ export default function CoursesPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Beginner">Beginner</SelectItem>
-                          <SelectItem value="Intermediate">Intermediate</SelectItem>
-                          <SelectItem value="Advanced">Advanced</SelectItem>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
