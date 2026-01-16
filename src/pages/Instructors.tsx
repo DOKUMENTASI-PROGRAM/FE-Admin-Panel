@@ -548,6 +548,7 @@ export default function InstructorsPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                       onClick={() => handleOpenView(instructor)}
                       title="View Details"
                     >
@@ -556,6 +557,7 @@ export default function InstructorsPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                       onClick={() => handleOpenEdit(instructor)}
                       title="Edit"
                     >
@@ -564,7 +566,7 @@ export default function InstructorsPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleOpenDelete(instructor)}
                       title="Delete"
                     >

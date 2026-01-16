@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useRooms, queryKeys } from '@/hooks/useQueries';
-import { SetupRoomAvailabilityDialog } from "@/components/SetupRoomAvailabilityDialog";
+// import { SetupRoomAvailabilityDialog } from "@/components/SetupRoomAvailabilityDialog";
 import {
   Table,
   TableBody,
@@ -264,6 +264,7 @@ export default function RoomsPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                       onClick={() => handleOpenEdit(room)}
                       title="Edit"
                     >
@@ -272,13 +273,13 @@ export default function RoomsPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleOpenDelete(room)}
                       title="Delete"
                     >
                       <Trash className="h-4 w-4" />
                     </Button>
-                    <SetupRoomAvailabilityDialog roomId={room.id} roomName={room.name} />
+                    {/* <SetupRoomAvailabilityDialog roomId={room.id} roomName={room.name} /> */}
                   </div>
                 </TableCell>
               </TableRow>

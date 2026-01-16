@@ -12,7 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Eye, Trash, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Trash, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,7 @@ export default function SchedulesPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -134,7 +136,6 @@ export default function SchedulesPage() {
     name: "schedule",
   });
 
-  // Reset edit form when selected schedule changes
   useEffect(() => {
     if (selectedSchedule) {
       const course = courses.find((c: any) => c.id === selectedSchedule.course_id);
@@ -144,16 +145,31 @@ export default function SchedulesPage() {
         setEditInstrument("");
       }
 
+      // Check if schedule is already an array (grouped/nested) or flat fields
+      let scheduleSlots = [
+          { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
+      ];
+
+      if (selectedSchedule.schedule && selectedSchedule.schedule.length > 0) {
+        scheduleSlots = selectedSchedule.schedule;
+      } else if (selectedSchedule.slots && selectedSchedule.slots.length > 0) {
+        scheduleSlots = selectedSchedule.slots;
+      } else if (selectedSchedule.day_of_week && selectedSchedule.start_time && selectedSchedule.end_time) {
+         // Create array from flat fields
+         scheduleSlots = [{
+            day_of_week: selectedSchedule.day_of_week,
+            start_time: selectedSchedule.start_time,
+            end_time: selectedSchedule.end_time,
+            duration: selectedSchedule.duration || 30 // Ensure duration is calculated or present
+         }];
+      }
+
       editForm.reset({
         course_id: selectedSchedule.course_id || "",
         instructor_id: selectedSchedule.instructor_id || "",
         room_id: selectedSchedule.room_id || "",
-        // start_date: selectedSchedule.start_date ? selectedSchedule.start_date.split('T')[0] : "",
-        // end_date: selectedSchedule.end_date ? selectedSchedule.end_date.split('T')[0] : "",
         max_students: selectedSchedule.max_students || 5,
-        schedule: selectedSchedule.schedule || selectedSchedule.slots || [
-          { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
-        ],
+        schedule: scheduleSlots,
       });
     }
   }, [selectedSchedule, editForm]);
@@ -181,7 +197,15 @@ export default function SchedulesPage() {
   // Update schedule - PUT /api/admin/schedules/:id
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ScheduleFormValues }) => {
-      return api.put(`/api/admin/schedules/${id}`, data);
+      const payload = {
+        ...data,
+        schedule: data.schedule.map(({ start_time, end_time, ...rest }: any) => ({
+          ...rest,
+          start_time_of_day: start_time,
+          end_time_of_day: end_time,
+        })),
+      };
+      return api.put(`/api/admin/schedules/${id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.schedules() });
@@ -215,6 +239,27 @@ export default function SchedulesPage() {
         variant: "destructive", 
         title: "Error", 
         description: error.response?.data?.message || "Failed to delete schedule" 
+      });
+    },
+  });
+
+  // Bulk delete schedules
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const promises = ids.map(id => api.delete(`/api/admin/schedules/${id}`));
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.schedules() });
+      setIsDeleteOpen(false);
+      setScheduleToDelete(null);
+      toast({ title: "Success", description: "All schedules in group deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: error.response?.data?.message || "Failed to delete schedules" 
       });
     },
   });
@@ -283,28 +328,14 @@ export default function SchedulesPage() {
   const editSelectedCourseId = editForm.watch("course_id");
   const editSelectedCourse = courses.find((c: any) => c.id === editSelectedCourseId);
 
-  const filteredEditInstructors = instructors.filter((instructor: any) => {
-    if (!editSelectedCourse) return false;
-    
-    const courseInstrument = editSelectedCourse.instrument?.toLowerCase();
-    const courseType = editSelectedCourse.type_course?.toLowerCase();
-    
-    if (!courseInstrument || !courseType) return false;
-
-    const hasSpecialization = Array.isArray(instructor.specialization) && 
-      instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
-
-    const hasCategory = Array.isArray(instructor.teaching_categories) && 
-      instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
-
-    return hasSpecialization && hasCategory;
-  });
-
   // Build lookup maps
   const courseMap: { [key: string]: string } = {};
+  const instrumentMap: { [key: string]: string } = {};
+  
   courses.forEach((course: any) => {
     if (course && course.id) {
       courseMap[course.id] = course.title || course.name || course.id;
+      instrumentMap[course.id] = course.instrument || '-';
     }
   });
 
@@ -323,7 +354,7 @@ export default function SchedulesPage() {
     }
   });
 
-  if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
+  if (isLoading) return <TableSkeleton columnCount={7} rowCount={10} />;
   if (error) return <div className="p-4 text-red-500">Error loading schedules</div>;
 
   const schedules = schedulesData?.data || [];
@@ -337,13 +368,26 @@ export default function SchedulesPage() {
     }
   });
 
-  // Grouping Logic with enrollment data from availability slots
+  // Grouping Logic: Instructor + Instrument + Room
   const groupedSchedules = schedules.reduce((acc: any, schedule: any) => {
-    const key = `${schedule.course_id}-${schedule.instructor_id}-${schedule.room_id}`;
+    // Need to look up the instrument for this schedule's course
+    // We can use the already populated instrumentMap or find it in courses
+    const scheduleInstrument = instrumentMap[schedule.course_id] || 'Unknown';
+    
+    // Key based on Instructor + Instrument + Room
+    const key = `${schedule.instructor_id}-${scheduleInstrument}-${schedule.room_id}`;
+    
     if (!acc[key]) {
       acc[key] = {
-        ...schedule,
+        // Base info for the group
+        instructor_id: schedule.instructor_id,
+        room_id: schedule.room_id,
+        instrument: scheduleInstrument,
+        // Helper fields
         items: [],
+        course_types: new Set<string>(), // To store unique course types (tags)
+        
+        // Stats
         total_current_enrollments: 0,
         total_pending_count: 0,
         total_confirmed_count: 0,
@@ -352,7 +396,17 @@ export default function SchedulesPage() {
         room_name_from_slot: null,
       };
     }
+    
     acc[key].items.push(schedule);
+
+    // Add course type to the set
+    const course = courses.find((c: any) => c.id === schedule.course_id);
+    if (course && course.type_course) {
+        acc[key].course_types.add(course.type_course);
+    } else if (course && course.title) {
+        // Fallback to title if type_course is missing, or just use a generic tag
+         // acc[key].course_types.add(course.title); 
+    }
     
     // Get enrollment data from availability map
     const availabilityData = availabilityMap[schedule.id];
@@ -656,10 +710,10 @@ export default function SchedulesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Course</TableHead>
               <TableHead>Instructor</TableHead>
+              <TableHead>Instrument</TableHead>
+              <TableHead>Available Courses (Tags)</TableHead>
               <TableHead>Room</TableHead>
-              <TableHead>Current Enrollments</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -668,43 +722,51 @@ export default function SchedulesPage() {
               groupedSchedulesArray.map((group: any, index: number) => (
                 <TableRow key={index}>
                   <TableCell className="font-medium">
-                    {courseMap[group.course_id] || group.course_id || '-'}
+                     {instructorMap[group.instructor_id] || group.instructor_name_from_slot || group.instructor_id || '-'}
                   </TableCell>
                   <TableCell>
-                    {instructorMap[group.instructor_id] || group.instructor_name_from_slot || group.instructor_id || '-'}
+                    {group.instrument || '-'}
+                  </TableCell>
+                  <TableCell>
+                     <div className="flex flex-wrap gap-1">
+                        {Array.from(group.course_types).map((type: any, i) => (
+                            <Badge key={i} variant="outline" className="capitalize text-xs">
+                                {type}
+                            </Badge>
+                        ))}
+                         {group.course_types.size === 0 && <span className="text-muted-foreground">-</span>}
+                     </div>
                   </TableCell>
                   <TableCell>
                     {roomMap[group.room_id] || group.room_name_from_slot || group.room_id || '-'}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{group.total_current_enrollments || 0}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {group.total_pending_count > 0 && (
-                          <span className="text-yellow-600">{group.total_pending_count} pending</span>
-                        )}
-                        {group.total_pending_count > 0 && group.total_confirmed_count > 0 && ' / '}
-                        {group.total_confirmed_count > 0 && (
-                          <span className="text-green-600">{group.total_confirmed_count} confirmed</span>
-                        )}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
+                  <TableCell className="text-right space-x-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                         onClick={() => {
+                            if (group.items && group.items.length > 0) {
+                                setScheduleToDelete(group);
+                                setIsDeleteOpen(true);
+                            }
+                         }}
+                     >
+                        <Trash className="h-4 w-4" />
+                     </Button>
                     <Button 
-                      variant="ghost" 
-                      size="icon"
+                      variant="outline" 
+                      size="sm"
                       onClick={() => handleOpenView(group)}
-                      title="View Details"
                     >
-                      <Eye className="h-4 w-4" />
+                      Manage Jadwal
                     </Button>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+                <TableCell colSpan={5} className="text-center py-4 text-gray-500">
                   No schedules found
                 </TableCell>
               </TableRow>
@@ -765,14 +827,7 @@ export default function SchedulesPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Course</FormLabel>
-                        <Select 
-                          onValueChange={(val) => {
-                            field.onChange(val);
-                            editForm.setValue("instructor_id", "");
-                          }} 
-                          value={field.value}
-                          disabled={!editInstrument}
-                        >
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select course" />
@@ -790,38 +845,63 @@ export default function SchedulesPage() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={editForm.control}
-                    name="instructor_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Instructor</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value}
-                          disabled={!editSelectedCourseId}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select instructor" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {filteredEditInstructors.map((instructor: any) => (
-                              <SelectItem 
-                                key={instructor.user_id || instructor.id} 
-                                value={instructor.user_id || instructor.id}
-                              >
-                                {instructor.full_name || instructor.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                
+                 {(() => {
+                    const selectedCourseId = editForm.watch("course_id");
+                    const selectedCourse = courses.find((c: any) => c.id === selectedCourseId);
+                    
+                    const filteredEditInstructors = instructors.filter((instructor: any) => {
+                      if (!selectedCourse) return true; 
+                      
+                      const courseInstrument = selectedCourse.instrument?.toLowerCase();
+                      const courseType = selectedCourse.type_course?.toLowerCase();
+                      
+                      if (!courseInstrument || !courseType) return true;
+
+                      const hasSpecialization = Array.isArray(instructor.specialization) && 
+                        instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
+
+                      const hasCategory = Array.isArray(instructor.teaching_categories) && 
+                        instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
+
+                      return hasSpecialization && hasCategory;
+                    });
+
+                    return (
+                        <FormField
+                          control={editForm.control}
+                          name="instructor_id"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Instructor</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select instructor" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {filteredEditInstructors.map((instructor: any) => (
+                                    <SelectItem 
+                                      key={instructor.user_id || instructor.id} 
+                                      value={instructor.user_id || instructor.id}
+                                    >
+                                      {instructor.full_name || instructor.name}
+                                    </SelectItem>
+                                  ))}
+                                  {filteredEditInstructors.length === 0 && (
+                                    <div className="p-2 text-sm text-muted-foreground text-center">
+                                        No matching instructors found
+                                    </div>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                    );
+                })()}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -975,6 +1055,8 @@ export default function SchedulesPage() {
                 ))}
               </div>
 
+              </div>
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                   Cancel
@@ -994,7 +1076,7 @@ export default function SchedulesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this schedule. 
+              This will permanently delete <strong>{scheduleToDelete?.items?.length || 1}</strong> schedule(s) in this group.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1003,12 +1085,16 @@ export default function SchedulesPage() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
-                if (selectedSchedule) {
-                  deleteMutation.mutate(selectedSchedule.id);
+                if (scheduleToDelete && scheduleToDelete.items) {
+                   const ids = scheduleToDelete.items.map((s: any) => s.id);
+                   bulkDeleteMutation.mutate(ids);
+                } else if (selectedSchedule) {
+                   // Fallback for single item delete if needed (though we mostly use group delete now for table)
+                   deleteMutation.mutate(selectedSchedule.id);
                 }
               }}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending || bulkDeleteMutation.isPending ? "Deleting..." : "Delete All"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

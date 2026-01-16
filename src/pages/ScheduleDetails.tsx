@@ -12,8 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Edit, Trash, ArrowLeft, Plus, BookOpen, User, MapPin } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Edit, Trash, ArrowLeft, Plus, BookOpen, User, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -80,6 +80,28 @@ const addScheduleSchema = z.object({
 
 type AddScheduleFormValues = z.infer<typeof addScheduleSchema>;
 
+
+const CollapsibleSection = ({ title, children, defaultOpen = false }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border rounded-md overflow-hidden bg-card text-card-foreground shadow-sm mb-4">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-between w-full p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+      >
+        <span className="font-semibold text-lg tracking-tight">{title}</span>
+        {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+      </button>
+      {isOpen && (
+        <div className="border-t">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function ScheduleDetailsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -99,6 +121,11 @@ export default function ScheduleDetailsPage() {
   const { data: coursesData } = useCourses();
   const { data: instructorsData } = useInstructors(1, 1000);
   const { data: roomsData } = useRooms();
+  
+  // Moved up to fix ReferenceError
+  const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
+  const instructors = Array.isArray(instructorsData) ? instructorsData : (instructorsData?.data || []);
+  const rooms = Array.isArray(roomsData) ? roomsData : (roomsData?.data || []);
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -142,26 +169,74 @@ export default function ScheduleDetailsPage() {
     name: "schedule",
   });
 
+  const [editInstrument, setEditInstrument] = useState<string>("");
+
   useEffect(() => {
     if (selectedSchedule) {
+      const course = courses.find((c: any) => c.id === selectedSchedule.course_id);
+      if (course && course.instrument) {
+        setEditInstrument(course.instrument);
+      } else {
+        setEditInstrument("");
+      }
+
+      // Check if schedule is already an array (grouped/nested) or flat fields
+      let scheduleSlots = [
+          { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
+      ];
+
+      if (selectedSchedule.schedule && selectedSchedule.schedule.length > 0) {
+        scheduleSlots = selectedSchedule.schedule;
+      } else if (selectedSchedule.slots && selectedSchedule.slots.length > 0) {
+        scheduleSlots = selectedSchedule.slots;
+      } else {
+         // Fallback for flat fields (legacy or specific API structure)
+         // Check for day_of_week OR day
+         const day = selectedSchedule.day_of_week || selectedSchedule.day;
+         // Check for start_time OR start_time_of_day
+         const start = selectedSchedule.start_time || selectedSchedule.start_time_of_day;
+         // Check for end_time OR end_time_of_day
+         const end = selectedSchedule.end_time || selectedSchedule.end_time_of_day;
+
+         if (day && start && end) {
+             scheduleSlots = [{
+                day_of_week: day,
+                start_time: start.slice(0, 5), // Ensure HH:MM format
+                end_time: end.slice(0, 5),     // Ensure HH:MM format
+                duration: selectedSchedule.duration || 30 
+             }];
+         }
+      }
+
       editForm.reset({
         course_id: selectedSchedule.course_id || "",
         instructor_id: selectedSchedule.instructor_id || "",
         room_id: selectedSchedule.room_id || "",
         max_students: selectedSchedule.max_students || 5,
-        schedule: selectedSchedule.schedule || selectedSchedule.slots || [
-          { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
-        ],
+        schedule: scheduleSlots,
       });
     }
   }, [selectedSchedule, editForm]);
 
+  const uniqueInstruments = Array.from(new Set(courses.map((c: any) => c.instrument).filter(Boolean))) as string[];
+  const filteredEditCourses = courses.filter((c: any) => 
+    !editInstrument || (c.instrument && c.instrument === editInstrument)
+  );
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ScheduleFormValues }) => {
-      return api.put(`/api/admin/schedules/${id}`, data);
+      const payload = {
+        ...data,
+        schedule: data.schedule.map(({ start_time, end_time, ...rest }: any) => ({
+          ...rest,
+          start_time_of_day: start_time,
+          end_time_of_day: end_time,
+        })),
+      };
+      return api.put(`/api/admin/schedules/${id}`, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedules() });
+      queryClient.invalidateQueries({ queryKey: ["schedules"] });
       setIsEditOpen(false);
       setSelectedSchedule(null);
       editForm.reset();
@@ -252,10 +327,6 @@ export default function ScheduleDetailsPage() {
       updateMutation.mutate({ id: selectedSchedule.id, data: values });
     }
   }
-
-  const courses = Array.isArray(coursesData) ? coursesData : (coursesData?.data || []);
-  const instructors = Array.isArray(instructorsData) ? instructorsData : (instructorsData?.data || []);
-  const rooms = Array.isArray(roomsData) ? roomsData : (roomsData?.data || []);
 
   const courseMap: { [key: string]: string } = {};
   courses.forEach((course: any) => {
@@ -353,90 +424,103 @@ export default function ScheduleDetailsPage() {
         </Card>
       </div>
 
-      <div className="border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Day</TableHead>
-              <TableHead>Max Students</TableHead>
-              <TableHead>Current Enrollments</TableHead>
-              <TableHead>Available Capacity</TableHead>
-              <TableHead>Sessions</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSchedules.length > 0 ? (
-              filteredSchedules.map((schedule: any) => (
-                <TableRow key={schedule.id}>
-                  <TableCell className="capitalize">
-                    {schedule.day_of_week || '-'}
-                  </TableCell>
-                  <TableCell>{availabilityMap[schedule.id]?.max_students || schedule.max_students || schedule.rooms?.capacity || '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{availabilityMap[schedule.id]?.current_enrollments ?? schedule.current_enrollments ?? 0}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {availabilityMap[schedule.id]?.pending_count > 0 && (
-                          <span className="text-yellow-600">{availabilityMap[schedule.id].pending_count} pending</span>
-                        )}
-                        {availabilityMap[schedule.id]?.pending_count > 0 && availabilityMap[schedule.id]?.confirmed_count > 0 && ' / '}
-                        {availabilityMap[schedule.id]?.confirmed_count > 0 && (
-                          <span className="text-green-600">{availabilityMap[schedule.id].confirmed_count} confirmed</span>
-                        )}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{availabilityMap[schedule.id]?.available_capacity ?? (schedule.max_students ? (schedule.max_students - (schedule.current_enrollments || 0)) : '-')}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {(schedule.schedule || schedule.slots || []).length > 0 ? (
-                        (schedule.schedule || schedule.slots).map((slot: any, i: number) => (
-                          <Badge key={i} variant="secondary">
-                            {slot.day_of_week?.charAt(0).toUpperCase() + slot.day_of_week?.slice(1)} {slot.start_time?.slice(0, 5)}-{slot.end_time?.slice(0, 5)}
-                          </Badge>
-                        ))
-                      ) : (
-                        <Badge variant="secondary">
-                          {schedule.start_time_of_day?.slice(0, 5)} - {schedule.end_time_of_day?.slice(0, 5)}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleOpenEdit(schedule)}
-                      title="Edit"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleOpenDelete(schedule)}
-                      title="Delete"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+      {/* Grouped Schedules View */}
+      <div className="space-y-4">
+        {Object.entries(
+          filteredSchedules.reduce((acc: any, schedule: any) => {
+            const course = courses.find((c: any) => c.id === schedule.course_id);
+            const type = (course?.type_course || 'Uncategorized').toUpperCase();
+            const groupKey = `COURSE ${type}`;
+            
+            if (!acc[groupKey]) acc[groupKey] = [];
+            acc[groupKey].push(schedule);
+            return acc;
+          }, {})
+        ).map(([groupTitle, schedules]: [string, any], index) => (
+          <CollapsibleSection key={index} title={groupTitle} defaultOpen={true}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Hari & Jam</TableHead>
+                  <TableHead>Ruangan</TableHead>
+                  <TableHead>Murid / Kapasitas</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-4 text-gray-500">
-                  No schedules found for this group.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {schedules.map((schedule: any) => {
+                  const availability = availabilityMap[schedule.id] || {};
+                  const roomName = roomMap[schedule.room_id] || schedule.room_name || '-';
+                  
+                  // Format Day & Time
+                  const slots = schedule.schedule || schedule.slots || [];
+                  let timeDisplay;
+
+                  if (slots.length > 0) {
+                    timeDisplay = slots.map((slot: any) => 
+                      `${slot.day_of_week?.charAt(0).toUpperCase() + slot.day_of_week?.slice(1)}, ${slot.start_time?.slice(0, 5)} - ${slot.end_time?.slice(0, 5)}`
+                    ).join(' | ');
+                  } else {
+                    const day = schedule.day_of_week 
+                      ? schedule.day_of_week.charAt(0).toUpperCase() + schedule.day_of_week.slice(1) 
+                      : (schedule.day ? schedule.day.charAt(0).toUpperCase() + schedule.day.slice(1) : '-');
+                    const start = schedule.start_time?.slice(0, 5) || schedule.start_time_of_day?.slice(0, 5) || '-';
+                    const end = schedule.end_time?.slice(0, 5) || schedule.end_time_of_day?.slice(0, 5) || '-';
+                    timeDisplay = `${day}, ${start} - ${end}`;
+                  }
+
+                  // Format Students / Capacity
+                  const current = availability.current_enrollments ?? schedule.current_enrollments ?? 0;
+                  const max = availability.max_students || schedule.max_students || schedule.rooms?.capacity || '-';
+                  
+                  return (
+                    <TableRow key={schedule.id}>
+                      <TableCell className="font-medium">
+                        {timeDisplay}
+                      </TableCell>
+                      <TableCell>{roomName}</TableCell>
+                      <TableCell>
+                        <span className={current >= max && max !== '-' ? "text-destructive font-medium" : ""}>
+                          {current}
+                        </span>
+                        <span className="text-muted-foreground"> / {max} Siswa</span>
+                      </TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenEdit(schedule)}
+                          className="h-8 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                        >
+                          <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleOpenDelete(schedule)}
+                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash className="h-3.5 w-3.5 mr-1" /> Hapus
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CollapsibleSection>
+        ))}
+        
+        {filteredSchedules.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground border rounded-md">
+            No schedules found matching the criteria.
+          </div>
+        )}
       </div>
 
       {/* Edit Schedule Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Schedule</DialogTitle>
@@ -446,58 +530,115 @@ export default function ScheduleDetailsPage() {
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="course_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Course</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select course" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {courses.map((course: any) => (
-                            <SelectItem key={course.id} value={course.id}>
-                              {course.title || course.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="instructor_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Instructor</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select instructor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {instructors.map((instructor: any) => (
-                            <SelectItem 
-                              key={instructor.user_id || instructor.id} 
-                              value={instructor.user_id || instructor.id}
-                            >
-                              {instructor.full_name || instructor.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="space-y-4">
+                <FormItem>
+                  <FormLabel>Instrument</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      setEditInstrument(value);
+                      editForm.setValue("course_id", "");
+                      editForm.setValue("instructor_id", "");
+                    }} 
+                    value={editInstrument}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select instrument" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {uniqueInstruments.map((instrument) => (
+                        <SelectItem key={instrument} value={instrument}>
+                          {instrument}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="course_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Course</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select course" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredEditCourses.map((course: any) => (
+                              <SelectItem key={course.id} value={course.id}>
+                                {course.title || course.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {(() => {
+                    const selectedCourseId = editForm.watch("course_id");
+                    const selectedCourse = courses.find((c: any) => c.id === selectedCourseId);
+                    
+                    const filteredEditInstructors = instructors.filter((instructor: any) => {
+                      if (!selectedCourse) return true; // Show all if no course selected (fallback)
+                      
+                      const courseInstrument = selectedCourse.instrument?.toLowerCase();
+                      const courseType = selectedCourse.type_course?.toLowerCase();
+                      
+                      if (!courseInstrument || !courseType) return true;
+
+                      const hasSpecialization = Array.isArray(instructor.specialization) && 
+                        instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
+
+                      const hasCategory = Array.isArray(instructor.teaching_categories) && 
+                        instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
+
+                      return hasSpecialization && hasCategory;
+                    });
+
+                    return (
+                        <FormField
+                          control={editForm.control}
+                          name="instructor_id"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Instructor</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select instructor" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {filteredEditInstructors.map((instructor: any) => (
+                                    <SelectItem 
+                                      key={instructor.user_id || instructor.id} 
+                                      value={instructor.user_id || instructor.id}
+                                    >
+                                      {instructor.full_name || instructor.name}
+                                    </SelectItem>
+                                  ))}
+                                  {filteredEditInstructors.length === 0 && (
+                                    <div className="p-2 text-sm text-muted-foreground text-center">
+                                        No matching instructors found
+                                    </div>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                    );
+                })()}
+
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -540,8 +681,6 @@ export default function ScheduleDetailsPage() {
                 />
               </div>
 
-
-
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h4 className="text-sm font-medium">Schedule Slots</h4>
@@ -549,7 +688,7 @@ export default function ScheduleDetailsPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => editAppend({ day_of_week: "monday", start_time: "09:00", end_time: "09 :30", duration: 30 })}
+                    onClick={() => editAppend({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                   >
                     <Plus className="h-4 w-4 mr-2" /> Add Slot
                   </Button>
@@ -625,7 +764,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.duration`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Duration</FormLabel>
+                            <FormLabel className="text-xs">Dur (min)</FormLabel>
                             <FormControl>
                               <Input type="number" {...field} />
                             </FormControl>
@@ -635,7 +774,7 @@ export default function ScheduleDetailsPage() {
                       />
                     </div>
                     <div className="col-span-1">
-                      {editFields.length > 1 && (
+                      {editFields.length >= 1 && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -649,6 +788,8 @@ export default function ScheduleDetailsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
               </div>
 
               <DialogFooter>

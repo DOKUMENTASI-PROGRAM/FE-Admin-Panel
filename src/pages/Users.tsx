@@ -326,6 +326,7 @@ export default function UsersPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                       onClick={() => handleOpenView(user)}
                       title="View Details"
                     >
@@ -334,6 +335,7 @@ export default function UsersPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
+                      className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                       onClick={() => handleOpenEdit(user)}
                       title="Edit"
                     >
@@ -342,7 +344,7 @@ export default function UsersPage() {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleOpenDelete(user)}
                       title="Delete"
                     >
