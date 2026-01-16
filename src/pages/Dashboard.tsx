@@ -52,8 +52,8 @@ export default function Dashboard() {
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5)
       .map((booking: any) => {
-        const studentName = booking.applicant_full_name || studentMap[booking.user_id] || 'Unknown Student';
-        const courseName = courseMap[booking.course_id] || 'Course';
+        const studentName = booking.applicant_full_name || studentMap[booking.user_id] || 'Siswa Tidak Diketahui';
+        const courseName = courseMap[booking.course_id] || 'Kursus';
         
         // Calculate time ago
         const date = new Date(booking.created_at);
@@ -61,15 +61,15 @@ export default function Dashboard() {
         const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
         let timeAgo = '';
         
-        if (diffInSeconds < 60) timeAgo = 'Just now';
-        else if (diffInSeconds < 3600) timeAgo = `${Math.floor(diffInSeconds / 60)} mins ago`;
-        else if (diffInSeconds < 86400) timeAgo = `${Math.floor(diffInSeconds / 3600)} hours ago`;
-        else timeAgo = date.toLocaleDateString();
+        if (diffInSeconds < 60) timeAgo = 'Baru saja';
+        else if (diffInSeconds < 3600) timeAgo = `${Math.floor(diffInSeconds / 60)} menit yang lalu`;
+        else if (diffInSeconds < 86400) timeAgo = `${Math.floor(diffInSeconds / 3600)} jam yang lalu`;
+        else timeAgo = date.toLocaleDateString('id-ID');
 
         return {
           id: booking.id,
-          title: `New booking ${booking.status}`,
-          description: `Student ${studentName} booked ${courseName}`,
+          title: `Booking baru ${booking.status}`,
+          description: `Siswa ${studentName} memesan ${courseName}`,
           time: timeAgo,
           status: booking.status
         };
@@ -83,64 +83,64 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="p-6 bg-red-50 text-red-600 rounded-lg border border-red-100">
-        Error loading dashboard data. Please try again later.
+        Gagal memuat data dashboard. Silakan coba lagi nanti.
       </div>
     );
   }
 
   const stats = [
     {
-      title: "Total Students",
+      title: "Total Siswa",
       value: data?.studentStats?.totalStudents || 0,
       icon: Users,
-      description: "Active students in the system",
+      description: "Siswa aktif dalam sistem",
       color: "text-blue-600",
       bgColor: "bg-blue-100",
     },
     {
-      title: "Total Courses",
+      title: "Total Kursus",
       value: data?.courseStats?.totalCourses || 0,
       icon: BookOpen,
-      description: "Available courses",
+      description: "Kursus tersedia",
       color: "text-purple-600",
       bgColor: "bg-purple-100",
     },
     {
-      title: "Total Bookings",
+      title: "Total Booking",
       value: data?.bookingStats?.totalBookings || 0,
       icon: Calendar,
-      description: "All time bookings",
+      description: "Total semua booking",
       color: "text-green-600",
       bgColor: "bg-green-100",
     },
     {
-      title: "Revenue",
+      title: "Pendapatan",
       value: new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(data?.totalRevenue || data?.paymentStats?.totalRevenue || 0),
       icon: DollarSign,
-      description: "Total revenue",
+      description: "Total pendapatan",
       color: "text-orange-600",
       bgColor: "bg-orange-100",
     }
   ];
 
   const quickActions = [
-    { label: "Add New Student", href: "/students", icon: Plus },
-    { label: "Create Course", href: "/courses", icon: BookOpen },
-    { label: "View Schedule", href: "/schedules", icon: Calendar },
-    { label: "Manage Booking", href: "/bookings", icon: Calendar },
+    { label: "Tambah Siswa Baru", href: "/students", icon: Plus },
+    { label: "Buat Kursus", href: "/courses", icon: BookOpen },
+    { label: "Lihat Jadwal", href: "/schedules", icon: Calendar },
+    { label: "Kelola Booking", href: "/bookings", icon: Calendar },
   ];
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard Overview</h2>
-          <p className="text-muted-foreground mt-1">Welcome back, here's what's happening with your music school today.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Ringkasan Dashboard</h2>
+          <p className="text-muted-foreground mt-1">Selamat datang kembali, berikut perkembangan sekolah musik Anda hari ini.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2">
             <Calendar className="h-4 w-4" />
-            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            {new Date().toLocaleDateString('id-ID', { month: 'long', day: 'numeric', year: 'numeric' })}
           </Button>
 
         </div>
@@ -175,8 +175,8 @@ export default function Dashboard() {
         {/* Quick Actions & Recent Activity Placeholder */}
         <Card className="md:col-span-4 border-none shadow-md">
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Frequently used actions for easy access.</CardDescription>
+            <CardTitle>Aksi Cepat</CardTitle>
+            <CardDescription>Aksi yang sering digunakan untuk akses mudah.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             {quickActions.map((action, i) => (
@@ -196,9 +196,9 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
-              Recent Activity
+              Aktivitas Terbaru
             </CardTitle>
-            <CardDescription>Latest system events and updates.</CardDescription>
+            <CardDescription>Event dan update sistem terbaru.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -217,13 +217,13 @@ export default function Dashboard() {
                 ))
               ) : (
                 <div className="text-center text-muted-foreground py-4">
-                  No recent activity
+                  Tidak ada aktivitas terbaru
                 </div>
               )}
             </div>
             <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80 hover:bg-primary/5" asChild>
               <Link to="/bookings">
-                View All Activity <ArrowRight className="ml-2 h-4 w-4" />
+                Lihat Semua Aktivitas <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>

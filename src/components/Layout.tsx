@@ -101,14 +101,14 @@ export default function Layout() {
       setUser(updatedUser);
       setIsEditProfileOpen(false);
       toast({
-        title: "Profile Updated",
-        description: "Your profile has been successfully updated.",
+        title: "Profil Diperbarui",
+        description: "Profil Anda berhasil diperbarui.",
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Update Failed",
-        description: "Failed to update profile.",
+        title: "Gagal Memperbarui",
+        description: "Gagal memperbarui profil.",
       });
     }
   };
@@ -133,16 +133,16 @@ export default function Layout() {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/notifications', label: 'Notifications', icon: Bell },
-    { href: '/instructors', label: 'Instructors', icon: UserCog },
-    { href: '/rooms', label: 'Rooms', icon: DoorOpen },
-    { href: '/courses', label: 'Courses', icon: BookOpen },
-    { href: '/schedules', label: 'Schedules', icon: Clock },
-    { href: '/bookings', label: 'Bookings', icon: Calendar },
-    { href: '/students', label: 'Students', icon: GraduationCap },
+    { href: '/notifications', label: 'Notifikasi', icon: Bell },
+    { href: '/instructors', label: 'Instruktur', icon: UserCog },
+    { href: '/rooms', label: 'Ruangan', icon: DoorOpen },
+    { href: '/courses', label: 'Kursus', icon: BookOpen },
+    { href: '/schedules', label: 'Jadwal', icon: Clock },
+    { href: '/bookings', label: 'Pendaftaran', icon: Calendar },
+    { href: '/students', label: 'Siswa', icon: GraduationCap },
 
-    { href: '/payments', label: 'Payments', icon: Banknote },
-    { href: '/reports', label: 'Reports', icon: BarChart3 },
+    { href: '/payments', label: 'Pembayaran', icon: Banknote },
+    { href: '/reports', label: 'Laporan', icon: BarChart3 },
   ];
 
   const getPageTitle = () => {
@@ -207,7 +207,7 @@ export default function Layout() {
             onClick={handleLogout}
           >
             <LogOut className={cn("h-5 w-5", isSidebarOpen && "mr-3")} />
-            {isSidebarOpen && "Logout"}
+            {isSidebarOpen && "Keluar"}
           </Button>
         </div>
       </aside>
@@ -290,7 +290,7 @@ export default function Layout() {
                       }}
                     >
                       <UserCog className="mr-2 h-4 w-4" />
-                      Edit Profile
+                      Edit Profil
                     </Button>
                     <Button 
                       variant="ghost" 
@@ -298,7 +298,7 @@ export default function Layout() {
                       onClick={handleLogout}
                     >
                       <LogOut className="mr-2 h-4 w-4" />
-                      Logout
+                      Keluar
                     </Button>
                   </div>
                 </div>
@@ -315,15 +315,15 @@ export default function Layout() {
         </main>
       </div>
 
-      <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+    <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogTitle>Ubah Profil</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
-                Name
+                Nama
               </Label>
               <Input
                 id="name"
@@ -345,7 +345,7 @@ export default function Layout() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" onClick={handleUpdateProfile}>Save changes</Button>
+            <Button type="submit" onClick={handleUpdateProfile}>Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

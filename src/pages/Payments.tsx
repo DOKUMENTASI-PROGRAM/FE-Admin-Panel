@@ -169,10 +169,10 @@ export default function PaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       setIsAddOpen(false);
       resetForm();
-      toast({ title: 'Success', description: 'Payment created successfully' });
+      toast({ title: 'Berhasil', description: 'Pembayaran berhasil dibuat' });
     },
     onError: (error: any) => {
-      toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Failed to create payment' });
+      toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Gagal membuat pembayaran' });
     },
   });
 
@@ -182,10 +182,10 @@ export default function PaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       setIsEditOpen(false);
       resetForm();
-      toast({ title: 'Success', description: 'Payment updated successfully' });
+      toast({ title: 'Berhasil', description: 'Pembayaran berhasil diperbarui' });
     },
     onError: (error: any) => {
-      toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Failed to update payment' });
+      toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Gagal memperbarui pembayaran' });
     },
   });
 
@@ -193,10 +193,10 @@ export default function PaymentsPage() {
     mutationFn: paymentService.deletePayment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
-      toast({ title: 'Success', description: 'Payment deleted successfully' });
+      toast({ title: 'Berhasil', description: 'Pembayaran berhasil dihapus' });
     },
     onError: (error: any) => {
-      toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Failed to delete payment' });
+      toast({ variant: 'destructive', title: 'Error', description: error.response?.data?.message || 'Gagal menghapus pembayaran' });
     },
     onSettled: () => {
       setDeleteConfirmOpen(false);
@@ -228,7 +228,7 @@ export default function PaymentsPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Invalid file format. Please use JPEG, PNG, WebP, or GIF."
+        description: "Format file tidak valid. Harap gunakan JPEG, PNG, WebP, atau GIF."
       });
       return;
     }
@@ -238,7 +238,7 @@ export default function PaymentsPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "File size must be less than 5MB."
+        description: "Ukuran file harus kurang dari 5MB."
       });
       return;
     }
@@ -247,10 +247,10 @@ export default function PaymentsPage() {
       setIsUploading(true);
       const url = await uploadToStorage(file, 'payment-proofs', '');
       setFormData(prev => ({ ...prev, payment_proof: url }));
-      toast({ title: 'Success', description: 'Image uploaded successfully' });
+      toast({ title: 'Berhasil', description: 'Gambar berhasil diupload' });
     } catch (error: any) {
        console.error(error);
-       toast({ variant: 'destructive', title: 'Error', description: 'Upload failed' });
+       toast({ variant: 'destructive', title: 'Error', description: 'Upload gagal' });
     } finally {
       setIsUploading(false);
     }
@@ -311,11 +311,11 @@ export default function PaymentsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Payments</h2>
-          <p className="text-muted-foreground">Manage student payments and transaction history.</p>
+          <h2 className="text-3xl font-bold tracking-tight">Pembayaran</h2>
+          <p className="text-muted-foreground">Kelola pembayaran siswa dan riwayat transaksi.</p>
         </div>
         <Button onClick={() => { resetForm(); setIsAddOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Add Payment
+          <Plus className="mr-2 h-4 w-4" /> Tambah Pembayaran
         </Button>
       </div>
 
@@ -323,7 +323,7 @@ export default function PaymentsPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search payments..."
+            placeholder="Cari pembayaran..."
             className="pl-8"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -336,13 +336,13 @@ export default function PaymentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Student</TableHead>
+              <TableHead>Tanggal</TableHead>
+              <TableHead>Siswa</TableHead>
               <TableHead>
                 <Popover open={openFilterPopover === 'type'} onOpenChange={(open) => setOpenFilterPopover(open ? 'type' : null)}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 -ml-3 font-medium hover:bg-muted">
-                      Type
+                      Tipe
                       {filterType ? <X className="ml-1 h-3 w-3 text-primary" onClick={(e) => { e.stopPropagation(); setFilterType(null); }} /> : <Filter className="ml-1 h-3 w-3 opacity-50" />}
                     </Button>
                   </PopoverTrigger>
@@ -359,7 +359,7 @@ export default function PaymentsPage() {
                 <Popover open={openFilterPopover === 'method'} onOpenChange={(open) => setOpenFilterPopover(open ? 'method' : null)}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 -ml-3 font-medium hover:bg-muted">
-                      Method
+                      Metode
                       {filterMethod ? <X className="ml-1 h-3 w-3 text-primary" onClick={(e) => { e.stopPropagation(); setFilterMethod(null); }} /> : <Filter className="ml-1 h-3 w-3 opacity-50" />}
                     </Button>
                   </PopoverTrigger>
@@ -373,7 +373,7 @@ export default function PaymentsPage() {
                   </PopoverContent>
                 </Popover>
               </TableHead>
-              <TableHead>Amount</TableHead>
+              <TableHead>Jumlah</TableHead>
               <TableHead>
                 <Popover open={openFilterPopover === 'status'} onOpenChange={(open) => setOpenFilterPopover(open ? 'status' : null)}>
                   <PopoverTrigger asChild>
@@ -393,17 +393,17 @@ export default function PaymentsPage() {
                   </PopoverContent>
                 </Popover>
               </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">Loading...</TableCell>
+                <TableCell colSpan={7} className="text-center py-8">Memuat...</TableCell>
               </TableRow>
             ) : payments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">No payments found</TableCell>
+                <TableCell colSpan={7} className="text-center py-8">Tidak ada pembayaran ditemukan</TableCell>
               </TableRow>
             ) : (
               payments.map((payment: Payment) => (
@@ -471,13 +471,13 @@ export default function PaymentsPage() {
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="overflow-y-visible">
           <DialogHeader>
-            <DialogTitle>Add New Payment</DialogTitle>
-            <DialogDescription>Record a new payment transaction.</DialogDescription>
+            <DialogTitle>Tambah Pembayaran Baru</DialogTitle>
+            <DialogDescription>Catat transaksi pembayaran baru.</DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => handleSubmit(e, false)}>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2 flex flex-col">
-                <Label htmlFor="student_id">Student Name (Auto-suggestion)</Label>
+                <Label htmlFor="student_id">Nama Siswa (Auto-suggestion)</Label>
                 <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                   <PopoverTrigger asChild>
                     <Button
@@ -488,15 +488,15 @@ export default function PaymentsPage() {
                     >
                       {formData.booking_id
                         ? students.find((student) => student.id === formData.booking_id)?.name || formData.booking_id
-                        : "Select student..."}
+                        : "Pilih siswa..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0">
                     <Command>
-                      <CommandInput placeholder="Search student..." />
+                      <CommandInput placeholder="Cari siswa..." />
                       <CommandList>
-                        <CommandEmpty>No student found.</CommandEmpty>
+                        <CommandEmpty>Siswa tidak ditemukan.</CommandEmpty>
                         <CommandGroup>
                           {students.map((student) => (
                             <CommandItem
@@ -527,16 +527,16 @@ export default function PaymentsPage() {
                 </Popover>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="amount">Amount</Label>
+                <Label htmlFor="amount">Jumlah</Label>
                 <Input id="amount" type="number" required value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="payment_date">Date</Label>
+                <Label htmlFor="payment_date">Tanggal</Label>
                 <Input id="payment_date" type="date" required value={formData.payment_date} onChange={(e) => setFormData({...formData, payment_date: e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="payment_period">Period</Label>
+                  <Label htmlFor="payment_period">Periode</Label>
                   <Input 
                     id="payment_period" 
                     type="month" 
@@ -545,7 +545,7 @@ export default function PaymentsPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Method</Label>
+                  <Label>Metode</Label>
                   <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -568,11 +568,11 @@ export default function PaymentsPage() {
                   </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes">Catatan</Label>
                 <Input id="notes" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="payment_proof">Payment Proof</Label>
+                <Label htmlFor="payment_proof">Bukti Pembayaran</Label>
                 <div className="flex flex-col gap-2">
                   {formData.payment_proof && (
                     <div className="relative w-full h-40 bg-muted rounded-md overflow-hidden">
@@ -606,8 +606,8 @@ export default function PaymentsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={createMutation.isPending}>Save Payment</Button>
+              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>Batal</Button>
+              <Button type="submit" disabled={createMutation.isPending}>Simpan Pembayaran</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -617,15 +617,15 @@ export default function PaymentsPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Payment</DialogTitle>
+            <DialogTitle>Edit Pembayaran</DialogTitle>
             <DialogDescription>
-              Update payment details including student, amount, and status.
+              Perbarui detail pembayaran termasuk siswa, jumlah, dan status.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => handleSubmit(e, true)}>
             <div className="grid gap-4 py-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="edit_student_id">Student Name</Label>
+                <Label htmlFor="edit_student_id">Nama Siswa</Label>
                 <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                   <PopoverTrigger asChild>
                     <Button
@@ -636,15 +636,15 @@ export default function PaymentsPage() {
                     >
                       {formData.booking_id
                         ? students.find((student) => student.id === formData.booking_id)?.name || formData.booking_id
-                        : "Select student..."}
+                        : "Pilih siswa..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0">
                     <Command>
-                      <CommandInput placeholder="Search student..." />
+                      <CommandInput placeholder="Cari siswa..." />
                       <CommandList>
-                        <CommandEmpty>No student found.</CommandEmpty>
+                        <CommandEmpty>Siswa tidak ditemukan.</CommandEmpty>
                         <CommandGroup>
                           {students.map((student) => (
                             <CommandItem
@@ -675,16 +675,16 @@ export default function PaymentsPage() {
                 </Popover>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit_amount">Amount</Label>
+                <Label htmlFor="edit_amount">Jumlah</Label>
                 <Input id="edit_amount" type="number" required value={formData.amount} onChange={(e) => setFormData({...formData, amount: e.target.value})} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit_payment_date">Date</Label>
+                <Label htmlFor="edit_payment_date">Tanggal</Label>
                 <Input id="edit_payment_date" type="date" required value={formData.payment_date} onChange={(e) => setFormData({...formData, payment_date: e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="edit_payment_period">Period</Label>
+                  <Label htmlFor="edit_payment_period">Periode</Label>
                   <Input 
                     id="edit_payment_period" 
                     type="month" 
@@ -693,7 +693,7 @@ export default function PaymentsPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Method</Label>
+                  <Label>Metode</Label>
                   <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -716,11 +716,11 @@ export default function PaymentsPage() {
                   </Select>
               </div>
                <div className="grid gap-2">
-                <Label htmlFor="edit_notes">Notes</Label>
+                <Label htmlFor="edit_notes">Catatan</Label>
                 <Input id="edit_notes" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit_payment_proof">Payment Proof</Label>
+                <Label htmlFor="edit_payment_proof">Bukti Pembayaran</Label>
                  <div className="flex flex-col gap-2">
                   {formData.payment_proof && (
                     <div className="relative w-full h-40 bg-muted rounded-md overflow-hidden">
@@ -754,8 +754,8 @@ export default function PaymentsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={updateMutation.isPending}>Update Payment</Button>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Batal</Button>
+              <Button type="submit" disabled={updateMutation.isPending}>Perbarui Pembayaran</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -765,31 +765,31 @@ export default function PaymentsPage() {
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Payment Details</DialogTitle>
+            <DialogTitle>Detail Pembayaran</DialogTitle>
           </DialogHeader>
           {selectedPayment && (
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Student Name</Label>
+                  <Label className="text-muted-foreground">Nama Siswa</Label>
                   <div className="font-medium">
                     {selectedPayment.student_name || (selectedPayment.booking_id ? bookingNameMap[selectedPayment.booking_id] : null) || selectedPayment.student_id || '-'}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Amount</Label>
+                  <Label className="text-muted-foreground">Jumlah</Label>
                   <div className="font-medium">Rp {selectedPayment.amount.toLocaleString()}</div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Date</Label>
+                  <Label className="text-muted-foreground">Tanggal</Label>
                   <div className="font-medium">{new Date(selectedPayment.payment_date).toLocaleDateString()}</div>
                 </div>
                  <div>
-                  <Label className="text-muted-foreground">Period</Label>
+                  <Label className="text-muted-foreground">Periode</Label>
                   <div className="font-medium capitalize">{selectedPayment.payment_period || '-'}</div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Method</Label>
+                  <Label className="text-muted-foreground">Metode</Label>
                   <div className="font-medium capitalize">{selectedPayment.payment_method?.replace('_', ' ') || '-'}</div>
                 </div>
                 <div>
@@ -807,14 +807,14 @@ export default function PaymentsPage() {
               </div>
               
               <div>
-                <Label className="text-muted-foreground">Notes</Label>
+                <Label className="text-muted-foreground">Catatan</Label>
                 <div className="text-sm border rounded-md p-2 mt-1 min-h-[60px]">
-                  {selectedPayment.notes || 'No notes'}
+                  {selectedPayment.notes || 'Tidak ada catatan'}
                 </div>
               </div>
 
               <div>
-                <Label className="text-muted-foreground">Payment Proof</Label>
+                <Label className="text-muted-foreground">Bukti Pembayaran</Label>
                 <div className="mt-2 text-sm">
                    {selectedPayment.payment_proof ? (
                     <div 
@@ -831,7 +831,7 @@ export default function PaymentsPage() {
                       </div>
                     </div>
                    ) : (
-                     <div className="text-muted-foreground italic">No proof image available</div>
+                     <div className="text-muted-foreground italic">Tidak ada bukti pembayaran</div>
                    )}
                    {selectedPayment.payment_proof && (
                      <p className="text-xs text-muted-foreground text-center mt-1">Klik gambar untuk memperbesar</p>
@@ -841,7 +841,7 @@ export default function PaymentsPage() {
             </div>
           )}
           <DialogFooter>
-             <Button type="button" variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
+             <Button type="button" variant="outline" onClick={() => setIsDetailOpen(false)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -849,15 +849,15 @@ export default function PaymentsPage() {
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the payment record.
+              Tindakan ini tidak dapat dibatalkan. Ini akan menghapus data pembayaran secara permanen.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
-              Delete
+              Hapus
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

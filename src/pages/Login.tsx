@@ -14,8 +14,8 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { supabase } from '@/lib/supabase'; // Import supabase client
 
 const formSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z.string().email("Format email tidak valid"),
+  password: z.string().min(6, "Password minimal 6 karakter"),
   rememberMe: z.boolean().default(false).optional(),
 });
 
@@ -70,17 +70,17 @@ export default function Login() {
         }
 
         toast({
-          title: "Login Successful",
-          description: "Welcome back!",
+          title: "Login Berhasil",
+          description: "Selamat datang kembali!",
         });
         navigate('/');
       }
     } catch (error: any) {
       console.error(error);
-      const errorMessage = error.response?.data?.error?.message || error.message || "Something went wrong";
+      const errorMessage = error.response?.data?.error?.message || error.message || "Terjadi kesalahan";
       toast({
         variant: "destructive",
-        title: "Login Failed",
+        title: "Login Gagal",
         description: errorMessage,
       });
     } finally {
@@ -92,8 +92,8 @@ export default function Login() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-[400px]">
         <CardHeader>
-          <CardTitle>Admin Login</CardTitle>
-          <CardDescription>Enter your credentials to access the admin panel.</CardDescription>
+          <CardTitle>Login Admin</CardTitle>
+          <CardDescription>Masukkan kredensial Anda untuk mengakses panel admin.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -137,23 +137,23 @@ export default function Login() {
                         />
                       </FormControl>
                       <FormLabel className="font-normal">
-                        Remember me
+                        Ingat saya
                       </FormLabel>
                     </FormItem>
                   )}
                 />
                 <Link to="/forgot-password" className="text-sm font-medium text-primary hover:underline">
-                  Forgot password?
+                  Lupa password?
                 </Link>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <LoadingSpinner className="mr-2 h-4 w-4" />
-                    Logging in...
+                    Sedang masuk...
                   </>
                 ) : (
-                  "Login"
+                  "Masuk"
                 )}
               </Button>
             </form>

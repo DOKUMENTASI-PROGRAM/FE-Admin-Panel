@@ -97,7 +97,7 @@ export default function ReportsPage() {
 
   const handleRefresh = () => {
     refetch();
-    toast({ title: "Refreshed", description: "Report data has been refreshed" });
+    toast({ title: "Disegarkan", description: "Data laporan telah disegarkan" });
   };
 
   const formatCurrency = (amount: number) => {
@@ -117,7 +117,7 @@ export default function ReportsPage() {
           'Nama Siswa',
           'Tanggal Pembayaran',
           'Periode Pembayaran',
-          'Amount Pembayaran',
+          'Jumlah Pembayaran',
           'Status'
         ];
 
@@ -156,16 +156,16 @@ export default function ReportsPage() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        toast({ title: "Exported", description: "Payment report exported as CSV" });
+        toast({ title: "Diekspor", description: "Laporan pembayaran diekspor sebagai CSV" });
       } else {
-         toast({ variant: "destructive", title: "Export Failed", description: "No data available to export" });
+         toast({ variant: "destructive", title: "Ekspor Gagal", description: "Tidak ada data untuk diekspor" });
       }
     } catch (error: any) {
       console.error('Export error:', error);
       toast({ 
         variant: "destructive", 
-        title: "Export Failed", 
-        description: error.message || "Failed to export data" 
+        title: "Ekspor Gagal", 
+        description: error.message || "Gagal mengekspor data" 
       });
     } finally {
       setIsExporting(false);
@@ -175,19 +175,19 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Financial Reports</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Laporan Keuangan</h2>
       </div>
 
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Report</CardTitle>
-          <CardDescription>Filter payments by date range</CardDescription>
+          <CardTitle>Filter Laporan</CardTitle>
+          <CardDescription>Filter pembayaran berdasarkan rentang tanggal</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">From Date</label>
+              <label className="text-sm font-medium mb-2 block">Dari Tanggal</label>
               <Input 
                 type="date" 
                 value={dateFrom} 
@@ -195,7 +195,7 @@ export default function ReportsPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">To Date</label>
+              <label className="text-sm font-medium mb-2 block">Sampai Tanggal</label>
               <Input 
                 type="date" 
                 value={dateTo} 
@@ -204,7 +204,7 @@ export default function ReportsPage() {
             </div>
             <div className="flex items-end">
               <Button onClick={() => refetch()} disabled={isLoading} className="w-full md:w-auto">
-                Reload Data
+                Muat Ulang Data
               </Button>
             </div>
           </div>
@@ -215,19 +215,19 @@ export default function ReportsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="space-y-1">
-            <CardTitle>Payment Report</CardTitle>
+            <CardTitle>Laporan Pembayaran</CardTitle>
             <CardDescription>
-              {payments ? `${payments.length} records found (Source: Dashboard)` : 'Loading...'}
+              {payments ? `${payments.length} data ditemukan (Sumber: Dashboard)` : 'Memuat...'}
             </CardDescription>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              Segarkan
             </Button>
             <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting || isLoading || payments.length === 0}>
                {isExporting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
-               Export CSV
+               Ekspor CSV
             </Button>
           </div>
         </CardHeader>
@@ -239,10 +239,10 @@ export default function ReportsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Student Name</TableHead>
-                    <TableHead>Payment Date</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Amount</TableHead>
+                    <TableHead>Nama Siswa</TableHead>
+                    <TableHead>Tanggal Pembayaran</TableHead>
+                    <TableHead>Periode</TableHead>
+                    <TableHead>Jumlah</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -274,7 +274,7 @@ export default function ReportsPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              No payment records found.
+              Tidak ada data pembayaran ditemukan.
             </div>
           )}
         </CardContent>

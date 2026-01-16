@@ -10,12 +10,12 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-800">Notifications</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your system notifications and alerts.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-800">Notifikasi</h1>
+          <p className="text-sm text-gray-500 mt-1">Kelola notifikasi dan peringatan sistem Anda.</p>
         </div>
         <Button variant="outline" onClick={() => markAllAsRead()} className="gap-2">
           <CheckCheck className="h-4 w-4" />
-          Mark all as read
+          Tandai semua dibaca
         </Button>
       </div>
 
@@ -25,8 +25,8 @@ export default function NotificationsPage() {
             <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
               <span className="text-2xl">🔔</span>
             </div>
-            <h3 className="text-lg font-medium text-gray-900">No notifications</h3>
-            <p className="text-gray-500 mt-1">You're all caught up!</p>
+            <h3 className="text-lg font-medium text-gray-900">Tidak ada notifikasi</h3>
+            <p className="text-gray-500 mt-1">Anda sudah membaca semuanya!</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -56,7 +56,10 @@ export default function NotificationsPage() {
                           notification.type === 'error' ? "bg-red-100 text-red-800" :
                           "bg-gray-100 text-gray-700"
                         )}>
-                          {notification.type}
+                          {notification.type === 'info' ? 'Info' :
+                           notification.type === 'urgent' ? 'Penting' :
+                           notification.type === 'warning' ? 'Peringatan' :
+                           notification.type === 'error' ? 'Error' : notification.type}
                         </span>
                         <h4 className={cn(
                           "text-sm font-medium",
@@ -66,7 +69,7 @@ export default function NotificationsPage() {
                         </h4>
                       </div>
                       <span className="text-xs text-gray-400">
-                        {new Date(notification.created_at).toLocaleString()}
+                        {new Date(notification.created_at).toLocaleString('id-ID')}
                       </span>
                     </div>
                     <p className={cn(

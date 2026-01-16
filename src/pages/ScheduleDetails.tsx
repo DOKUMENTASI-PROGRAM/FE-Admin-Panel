@@ -50,36 +50,21 @@ import { TimePicker } from '@/components/ui/time-picker';
 import { TableSkeleton } from '@/components/TableSkeleton';
 
 const scheduleSchema = z.object({
-  course_id: z.string().min(1, "Course is required"),
-  instructor_id: z.string().min(1, "Instructor is required"),
-  room_id: z.string().min(1, "Room is required"),
-  max_students: z.coerce.number().min(1, "Max students must be at least 1"),
+  course_id: z.string().min(1, "Kursus wajib diisi"),
+  instructor_id: z.string().min(1, "Instruktur wajib diisi"),
+  room_id: z.string().min(1, "Ruangan wajib diisi"),
+  max_students: z.coerce.number().min(1, "Maksimal siswa minimal 1"),
   schedule: z.array(
     z.object({
-      day_of_week: z.string().min(1, "Day is required"),
-      start_time: z.string().min(1, "Start time is required"),
-      end_time: z.string().min(1, "End time is required"),
-      duration: z.coerce.number().min(1, "Duration is required"),
+      day_of_week: z.string().min(1, "Hari wajib diisi"),
+      start_time: z.string().min(1, "Waktu mulai wajib diisi"),
+      end_time: z.string().min(1, "Waktu selesai wajib diisi"),
+      duration: z.coerce.number().min(1, "Durasi wajib diisi"),
     })
-  ).min(1, "At least one schedule slot is required"),
+  ).min(1, "Setidaknya satu slot jadwal wajib diisi"),
 });
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
-
-const addScheduleSchema = z.object({
-  max_students: z.coerce.number().min(1, "Max students must be at least 1"),
-  schedule: z.array(
-    z.object({
-      day_of_week: z.string().min(1, "Day is required"),
-      start_time: z.string().min(1, "Start time is required"),
-      end_time: z.string().min(1, "End time is required"),
-      duration: z.coerce.number().min(1, "Duration is required"),
-    })
-  ).min(1, "At least one schedule slot is required"),
-});
-
-type AddScheduleFormValues = z.infer<typeof addScheduleSchema>;
-
 
 const CollapsibleSection = ({ title, children, defaultOpen = false }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -129,6 +114,20 @@ export default function ScheduleDetailsPage() {
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
+  const dayMap: { [key: string]: string } = {
+    monday: "Senin",
+    tuesday: "Selasa",
+    wednesday: "Rabu",
+    thursday: "Kamis",
+    friday: "Jumat",
+    saturday: "Sabtu",
+    sunday: "Minggu"
+  };
+
+  const dayOrder: { [key: string]: number } = {
+    monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 7
+  };
+
   const timeOptions = [];
   for (let i = 0; i < 24; i++) {
     const hour = i.toString().padStart(2, '0');
@@ -154,9 +153,12 @@ export default function ScheduleDetailsPage() {
     name: "schedule",
   });
 
-  const addForm = useForm<AddScheduleFormValues>({
-    resolver: zodResolver(addScheduleSchema),
+  const addForm = useForm<ScheduleFormValues>({
+    resolver: zodResolver(scheduleSchema),
     defaultValues: {
+      course_id: "",
+      instructor_id: "",
+      room_id: "",
       max_students: 1,
       schedule: [
         { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
@@ -170,6 +172,7 @@ export default function ScheduleDetailsPage() {
   });
 
   const [editInstrument, setEditInstrument] = useState<string>("");
+  const [createInstrument, setCreateInstrument] = useState<string>("");
 
   useEffect(() => {
     if (selectedSchedule) {
@@ -219,6 +222,36 @@ export default function ScheduleDetailsPage() {
   }, [selectedSchedule, editForm]);
 
   const uniqueInstruments = Array.from(new Set(courses.map((c: any) => c.instrument).filter(Boolean))) as string[];
+  
+  // Filter Logic for Add Form
+  const filteredCreateCourses = courses.filter((c: any) => 
+    !createInstrument || (c.instrument && c.instrument === createInstrument)
+  );
+
+  const createSelectedCourseId = addForm.watch("course_id");
+  const createSelectedCourse = courses.find((c: any) => c.id === createSelectedCourseId);
+
+  const filteredCreateInstructors = instructors.filter((instructor: any) => {
+    if (!createSelectedCourse) return false;
+    
+    // Normalizing strings for comparison
+    const courseInstrument = createSelectedCourse.instrument?.toLowerCase();
+    const courseType = createSelectedCourse.type_course?.toLowerCase();
+    
+    if (!courseInstrument || !courseType) return false;
+
+    // Check specialization (array of strings)
+    const hasSpecialization = Array.isArray(instructor.specialization) && 
+      instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
+
+    // Check teaching_categories (array of strings)
+    const hasCategory = Array.isArray(instructor.teaching_categories) && 
+      instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
+
+    return hasSpecialization && hasCategory;
+  });
+
+  // Filter Logic for Edit Form
   const filteredEditCourses = courses.filter((c: any) => 
     !editInstrument || (c.instrument && c.instrument === editInstrument)
   );
@@ -240,13 +273,13 @@ export default function ScheduleDetailsPage() {
       setIsEditOpen(false);
       setSelectedSchedule(null);
       editForm.reset();
-      toast({ title: "Success", description: "Schedule updated successfully" });
+      toast({ title: "Berhasil", description: "Jadwal berhasil diperbarui" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to update schedule" 
+        description: error.response?.data?.message || "Gagal memperbarui jadwal" 
       });
     },
   });
@@ -258,14 +291,18 @@ export default function ScheduleDetailsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.schedules() });
       setIsAddOpen(false);
-      addForm.reset();
-      toast({ title: "Success", description: "Schedule created successfully" });
+      
+      // Reset logic is handled in handleOpenAdd mostly, but here we can just close
+      // or optionally reset to default state if we want next add to be fresh
+      // But meaningful resets happen on open based on context.
+      
+      toast({ title: "Berhasil", description: "Jadwal berhasil dibuat" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to create schedule" 
+        description: error.response?.data?.message || "Gagal membuat jadwal" 
       });
     },
   });
@@ -278,13 +315,13 @@ export default function ScheduleDetailsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.schedules() });
       setIsDeleteOpen(false);
       setSelectedSchedule(null);
-      toast({ title: "Success", description: "Schedule deleted successfully" });
+      toast({ title: "Berhasil", description: "Jadwal berhasil dihapus" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to delete schedule" 
+        description: error.response?.data?.message || "Gagal menghapus jadwal" 
       });
     },
   });
@@ -300,7 +337,24 @@ export default function ScheduleDetailsPage() {
   };
 
   const handleOpenAdd = () => {
+    const baseSchedule = filteredSchedules[0] || {};
+    // Use query params first, then fallback to first schedule in list if filtered, else empty
+    const defaultCourseId = courseId || baseSchedule.course_id || "";
+    const defaultInstructorId = instructorId || baseSchedule.instructor_id || "";
+    const defaultRoomId = roomId || baseSchedule.room_id || "";
+
+    // Find course to set default instrument
+    const selectedCourse = courses.find((c: any) => c.id === defaultCourseId);
+    if (selectedCourse && selectedCourse.instrument) {
+        setCreateInstrument(selectedCourse.instrument);
+    } else {
+        setCreateInstrument("");
+    }
+
     addForm.reset({
+      course_id: defaultCourseId,
+      instructor_id: defaultInstructorId,
+      room_id: defaultRoomId,
       max_students: 1,
       schedule: [
         { day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 }
@@ -309,17 +363,8 @@ export default function ScheduleDetailsPage() {
     setIsAddOpen(true);
   };
 
-  function onAddSubmit(values: AddScheduleFormValues) {
-    // Get course_id, instructor_id, room_id from query params or first schedule
-    const baseSchedule = filteredSchedules[0] || {};
-    const fullData: ScheduleFormValues = {
-      course_id: courseId || baseSchedule.course_id || "",
-      instructor_id: instructorId || baseSchedule.instructor_id || "",
-      room_id: roomId || baseSchedule.room_id || "",
-      max_students: values.max_students,
-      schedule: values.schedule,
-    };
-    createMutation.mutate(fullData);
+  function onAddSubmit(values: ScheduleFormValues) {
+    createMutation.mutate(values);
   }
 
   function onEditSubmit(values: ScheduleFormValues) {
@@ -351,7 +396,7 @@ export default function ScheduleDetailsPage() {
   });
 
   if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
-  if (error) return <div className="p-4 text-red-500">Error loading schedules</div>;
+  if (error) return <div className="p-4 text-red-500">Error memuat jadwal</div>;
 
   const allSchedules = Array.isArray(schedulesData) ? schedulesData : (schedulesData?.data || []);
   const availabilitySlots = availabilitySlotsData?.slots || [];
@@ -380,45 +425,45 @@ export default function ScheduleDetailsPage() {
           <Button variant="outline" size="icon" onClick={() => navigate('/schedules')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-3xl font-bold tracking-tight">Schedule Details</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Detail Jadwal</h2>
         </div>
         <Button onClick={handleOpenAdd}>
           <Plus className="h-4 w-4 mr-2" />
-          Add Schedule
+          Tambah Jadwal
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Course</CardTitle>
+            <CardTitle className="text-sm font-medium">Kursus</CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold truncate" title={courseId ? (courseMap[courseId] || courseId) : 'All Courses'}>
-              {courseId ? (courseMap[courseId] || courseId) : 'All Courses'}
+            <div className="text-lg font-bold truncate" title={courseId ? (courseMap[courseId] || courseId) : 'Semua Kursus'}>
+              {courseId ? (courseMap[courseId] || courseId) : 'Semua Kursus'}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Instructor</CardTitle>
+            <CardTitle className="text-sm font-medium">Instruktur</CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold truncate" title={instructorId ? (instructorMap[instructorId] || instructorId) : 'All Instructors'}>
-              {instructorId ? (instructorMap[instructorId] || instructorId) : 'All Instructors'}
+            <div className="text-lg font-bold truncate" title={instructorId ? (instructorMap[instructorId] || instructorId) : 'Semua Instruktur'}>
+              {instructorId ? (instructorMap[instructorId] || instructorId) : 'Semua Instruktur'}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Room</CardTitle>
+            <CardTitle className="text-sm font-medium">Ruangan</CardTitle>
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold truncate" title={roomId ? (roomMap[roomId] || roomId) : 'All Rooms'}>
-              {roomId ? (roomMap[roomId] || roomId) : 'All Rooms'}
+            <div className="text-lg font-bold truncate" title={roomId ? (roomMap[roomId] || roomId) : 'Semua Ruangan'}>
+              {roomId ? (roomMap[roomId] || roomId) : 'Semua Ruangan'}
             </div>
           </CardContent>
         </Card>
@@ -430,7 +475,7 @@ export default function ScheduleDetailsPage() {
           filteredSchedules.reduce((acc: any, schedule: any) => {
             const course = courses.find((c: any) => c.id === schedule.course_id);
             const type = (course?.type_course || 'Uncategorized').toUpperCase();
-            const groupKey = `COURSE ${type}`;
+            const groupKey = `KURSUS ${type}`;
             
             if (!acc[groupKey]) acc[groupKey] = [];
             acc[groupKey].push(schedule);
@@ -444,11 +489,35 @@ export default function ScheduleDetailsPage() {
                   <TableHead>Hari & Jam</TableHead>
                   <TableHead>Ruangan</TableHead>
                   <TableHead>Murid / Kapasitas</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {schedules.map((schedule: any) => {
+                {schedules.sort((a: any, b: any) => {
+                  // Helper to get day and time
+                  const getDayTime = (item: any) => {
+                    let d = item.day_of_week || item.day || '';
+                    let t = item.start_time || item.start_time_of_day || '';
+                    
+                    if (item.schedule && item.schedule.length > 0) {
+                        d = item.schedule[0].day_of_week;
+                        t = item.schedule[0].start_time;
+                    } else if (item.slots && item.slots.length > 0) {
+                        d = item.slots[0].day_of_week;
+                        t = item.slots[0].start_time;
+                    }
+                    return { d: d?.toLowerCase(), t };
+                  };
+
+                  const { d: dayA, t: timeA } = getDayTime(a);
+                  const { d: dayB, t: timeB } = getDayTime(b);
+
+                  const orderA = dayOrder[dayA] || 8;
+                  const orderB = dayOrder[dayB] || 8;
+
+                  if (orderA !== orderB) return orderA - orderB;
+                  return timeA.localeCompare(timeB);
+                }).map((schedule: any) => {
                   const availability = availabilityMap[schedule.id] || {};
                   const roomName = roomMap[schedule.room_id] || schedule.room_name || '-';
                   
@@ -458,12 +527,12 @@ export default function ScheduleDetailsPage() {
 
                   if (slots.length > 0) {
                     timeDisplay = slots.map((slot: any) => 
-                      `${slot.day_of_week?.charAt(0).toUpperCase() + slot.day_of_week?.slice(1)}, ${slot.start_time?.slice(0, 5)} - ${slot.end_time?.slice(0, 5)}`
+                      `${dayMap[slot.day_of_week]} ${slot.start_time?.slice(0, 5)} - ${slot.end_time?.slice(0, 5)}`
                     ).join(' | ');
                   } else {
                     const day = schedule.day_of_week 
-                      ? schedule.day_of_week.charAt(0).toUpperCase() + schedule.day_of_week.slice(1) 
-                      : (schedule.day ? schedule.day.charAt(0).toUpperCase() + schedule.day.slice(1) : '-');
+                      ? dayMap[schedule.day_of_week] 
+                      : (schedule.day ? dayMap[schedule.day] : '-');
                     const start = schedule.start_time?.slice(0, 5) || schedule.start_time_of_day?.slice(0, 5) || '-';
                     const end = schedule.end_time?.slice(0, 5) || schedule.end_time_of_day?.slice(0, 5) || '-';
                     timeDisplay = `${day}, ${start} - ${end}`;
@@ -513,7 +582,7 @@ export default function ScheduleDetailsPage() {
         
         {filteredSchedules.length === 0 && (
           <div className="text-center py-8 text-muted-foreground border rounded-md">
-            No schedules found matching the criteria.
+            Tidak ada jadwal yang ditemukan yang sesuai kriteria.
           </div>
         )}
       </div>
@@ -523,16 +592,16 @@ export default function ScheduleDetailsPage() {
 
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Schedule</DialogTitle>
+            <DialogTitle>Edit Jadwal</DialogTitle>
             <DialogDescription>
-              Update schedule information.
+              Perbarui informasi jadwal.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
               <div className="space-y-4">
                 <FormItem>
-                  <FormLabel>Instrument</FormLabel>
+                  <FormLabel>Instrumen</FormLabel>
                   <Select 
                     onValueChange={(value) => {
                       setEditInstrument(value);
@@ -543,7 +612,7 @@ export default function ScheduleDetailsPage() {
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select instrument" />
+                        <SelectValue placeholder="Pilih instrumen" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -562,11 +631,11 @@ export default function ScheduleDetailsPage() {
                     name="course_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Course</FormLabel>
+                        <FormLabel>Kursus</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select course" />
+                              <SelectValue placeholder="Pilih kursus" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -609,11 +678,11 @@ export default function ScheduleDetailsPage() {
                           name="instructor_id"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Instructor</FormLabel>
+                              <FormLabel>Instruktur</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select instructor" />
+                                    <SelectValue placeholder="Pilih instruktur" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -627,7 +696,7 @@ export default function ScheduleDetailsPage() {
                                   ))}
                                   {filteredEditInstructors.length === 0 && (
                                     <div className="p-2 text-sm text-muted-foreground text-center">
-                                        No matching instructors found
+                                        Tidak ada instruktur yang cocok ditemukan
                                     </div>
                                   )}
                                 </SelectContent>
@@ -647,11 +716,11 @@ export default function ScheduleDetailsPage() {
                   name="room_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Room</FormLabel>
+                      <FormLabel>Ruangan</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select room" />
+                            <SelectValue placeholder="Pilih ruangan" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -671,7 +740,7 @@ export default function ScheduleDetailsPage() {
                   name="max_students"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Max Students</FormLabel>
+                      <FormLabel>Maks Siswa</FormLabel>
                       <FormControl>
                         <Input type="number" {...field} />
                       </FormControl>
@@ -683,14 +752,14 @@ export default function ScheduleDetailsPage() {
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-medium">Schedule Slots</h4>
+                  <h4 className="text-sm font-medium">Slot Jadwal</h4>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => editAppend({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                   >
-                    <Plus className="h-4 w-4 mr-2" /> Add Slot
+                    <Plus className="h-4 w-4 mr-2" /> Tambah Slot
                   </Button>
                 </div>
 
@@ -702,7 +771,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.day_of_week`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Day</FormLabel>
+                            <FormLabel className="text-xs">Hari</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -712,7 +781,7 @@ export default function ScheduleDetailsPage() {
                               <SelectContent>
                                 {days.map((day) => (
                                   <SelectItem key={day} value={day}>
-                                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                                    {dayMap[day]}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -728,7 +797,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.start_time`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Start</FormLabel>
+                            <FormLabel className="text-xs">Mulai</FormLabel>
                             <FormControl>
                               <TimePicker 
                                 value={field.value} 
@@ -746,7 +815,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.end_time`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">End</FormLabel>
+                            <FormLabel className="text-xs">Selesai</FormLabel>
                             <FormControl>
                               <TimePicker 
                                 value={field.value} 
@@ -764,7 +833,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.duration`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Dur (min)</FormLabel>
+                            <FormLabel className="text-xs">Durasi</FormLabel>
                             <FormControl>
                               <Input type="number" {...field} />
                             </FormControl>
@@ -789,15 +858,14 @@ export default function ScheduleDetailsPage() {
                   </div>
                 ))}
               </div>
-
-              </div>
+            </div>
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
                 </Button>
               </DialogFooter>
             </form>
@@ -809,14 +877,14 @@ export default function ScheduleDetailsPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this schedule. 
-              This action cannot be undone.
+              Tindakan ini akan menghapus jadwal ini secara permanen. 
+              Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -825,7 +893,7 @@ export default function ScheduleDetailsPage() {
                 }
               }}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -835,54 +903,163 @@ export default function ScheduleDetailsPage() {
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Schedule</DialogTitle>
+            <DialogTitle>Tambah Jadwal</DialogTitle>
             <DialogDescription>
-              Add a new schedule with the same course, instructor, and room.
+              Tambahkan jadwal baru.
             </DialogDescription>
           </DialogHeader>
 
-          {/* Show inherited info */}
-          <div className="grid grid-cols-3 gap-2 p-3 bg-muted rounded-md text-sm">
-            <div>
-              <span className="text-muted-foreground">Course:</span>{" "}
-              <span className="font-medium">{courseId ? (courseMap[courseId] || courseId) : 'Auto'}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Instructor:</span>{" "}
-              <span className="font-medium">{instructorId ? (instructorMap[instructorId] || instructorId) : 'Auto'}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Room:</span>{" "}
-              <span className="font-medium">{roomId ? (roomMap[roomId] || roomId) : 'Auto'}</span>
-            </div>
-          </div>
-
           <Form {...addForm}>
             <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-              <FormField
-                control={addForm.control}
-                name="max_students"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Max Students</FormLabel>
+              <div className="space-y-4">
+                <FormItem>
+                  <FormLabel>Instrumen</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      setCreateInstrument(value);
+                      addForm.setValue("course_id", "");
+                      addForm.setValue("instructor_id", "");
+                    }} 
+                    value={createInstrument}
+                  >
                     <FormControl>
-                      <Input type="number" {...field} />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pilih instrumen" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      {uniqueInstruments.map((instrument) => (
+                        <SelectItem key={instrument} value={instrument}>
+                          {instrument}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={addForm.control}
+                    name="course_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kursus</FormLabel>
+                        <Select 
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            addForm.setValue("instructor_id", "");
+                          }} 
+                          value={field.value}
+                          disabled={!createInstrument}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih kursus" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredCreateCourses.map((course: any) => (
+                              <SelectItem key={course.id} value={course.id}>
+                                {course.title || course.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={addForm.control}
+                    name="instructor_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instruktur</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={!createSelectedCourseId}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih instruktur" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredCreateInstructors.map((instructor: any) => (
+                              <SelectItem 
+                                key={instructor.user_id || instructor.id} 
+                                value={instructor.user_id || instructor.id}
+                              >
+                                {instructor.full_name || instructor.name}
+                              </SelectItem>
+                            ))}
+                            {filteredCreateInstructors.length === 0 && (
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                  Tidak ada instruktur yang cocok ditemukan
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addForm.control}
+                  name="room_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ruangan</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih ruangan" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {rooms.map((room: any) => (
+                            <SelectItem key={room.id} value={room.id}>
+                              {room.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={addForm.control}
+                  name="max_students"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Maks Siswa</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-medium">Schedule Slots</h4>
+                  <h4 className="text-sm font-medium">Slot Jadwal</h4>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => addAppend({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                   >
-                    <Plus className="h-4 w-4 mr-2" /> Add Slot
+                    <Plus className="h-4 w-4 mr-2" /> Tambah Slot
                   </Button>
                 </div>
 
@@ -894,7 +1071,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.day_of_week`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Day</FormLabel>
+                            <FormLabel className="text-xs">Hari</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -904,7 +1081,7 @@ export default function ScheduleDetailsPage() {
                               <SelectContent>
                                 {days.map((day) => (
                                   <SelectItem key={day} value={day}>
-                                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                                    {dayMap[day]}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -920,7 +1097,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.start_time`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Start</FormLabel>
+                            <FormLabel className="text-xs">Mulai</FormLabel>
                             <FormControl>
                               <TimePicker 
                                 value={field.value} 
@@ -938,7 +1115,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.end_time`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">End</FormLabel>
+                            <FormLabel className="text-xs">Selesai</FormLabel>
                             <FormControl>
                               <TimePicker 
                                 value={field.value} 
@@ -956,7 +1133,7 @@ export default function ScheduleDetailsPage() {
                         name={`schedule.${index}.duration`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Duration</FormLabel>
+                            <FormLabel className="text-xs">Durasi</FormLabel>
                             <FormControl>
                               <Input type="number" {...field} />
                             </FormControl>
@@ -984,10 +1161,10 @@ export default function ScheduleDetailsPage() {
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Creating..." : "Create Schedule"}
+                  {createMutation.isPending ? "Membuat..." : "Buat Jadwal"}
                 </Button>
               </DialogFooter>
             </form>

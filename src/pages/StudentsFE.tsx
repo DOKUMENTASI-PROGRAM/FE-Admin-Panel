@@ -205,7 +205,7 @@ const StudentForm = ({
             name="photo_url"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Photo</FormLabel>
+                <FormLabel>Foto</FormLabel>
                 <div className="flex items-start gap-4">
                   {(photoPreview || field.value) && (
                     <div className="relative w-24 h-24">
@@ -243,7 +243,7 @@ const StudentForm = ({
                     {isUploading && (
                       <div className="flex items-center text-sm text-yellow-600">
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Uploading photo...
+                        Mengupload foto...
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
@@ -259,7 +259,7 @@ const StudentForm = ({
             name="highlight_quote"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Highlight Quote</FormLabel>
+                <FormLabel>Kutipan Utama</FormLabel>
                 <FormControl>
                   <Textarea placeholder="Quote menarik tentang musik..." {...field} value={field.value || ""} />
                 </FormControl>
@@ -343,10 +343,11 @@ export default function StudentsFEPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.students() });
       setIsCreateOpen(false);
       form.reset();
-      toast({ title: "Success", description: "Student created successfully" });
+      form.reset();
+      toast({ title: "Berhasil", description: "Siswa berhasil dibuat" });
     },
     onError: (error: any) => {
-        toast({ variant: "destructive", title: "Error", description: error.response?.data?.message || "Failed to create student" });
+        toast({ variant: "destructive", title: "Error", description: error.response?.data?.message || "Gagal membuat siswa" });
     }
   });
 
@@ -357,10 +358,11 @@ export default function StudentsFEPage() {
       setIsEditOpen(false);
       setSelectedStudent(null);
       form.reset();
-      toast({ title: "Success", description: "Student updated successfully" });
+      form.reset();
+      toast({ title: "Berhasil", description: "Siswa berhasil diperbarui" });
     },
     onError: (error: any) => {
-        toast({ variant: "destructive", title: "Error", description: error.response?.data?.message || "Failed to update student" });
+        toast({ variant: "destructive", title: "Error", description: error.response?.data?.message || "Gagal memperbarui siswa" });
     }
   });
 
@@ -372,13 +374,15 @@ export default function StudentsFEPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.students() });
       setIsDeleteOpen(false);
       setSelectedStudent(null);
-      toast({ title: "Success", description: "Student deleted successfully" });
+      setIsDeleteOpen(false);
+      setSelectedStudent(null);
+      toast({ title: "Berhasil", description: "Siswa berhasil dihapus" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to delete student" 
+        description: error.response?.data?.message || "Gagal menghapus siswa" 
       });
     },
   });
@@ -451,15 +455,15 @@ export default function StudentsFEPage() {
   }
 
   if (isStudentsLoading) return <TableSkeleton columnCount={5} rowCount={10} />;
-  if (error) return <div className="p-4 text-red-500">Error loading students</div>;
+  if (error) return <div className="p-4 text-red-500">Gagal memuat data siswa</div>;
 
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Students (FE)</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Siswa (FE)</h2>
         <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Student
+          <Plus className="mr-2 h-4 w-4" /> Tambah Siswa
         </Button>
       </div>
       
@@ -467,11 +471,11 @@ export default function StudentsFEPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Nama</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Photo</TableHead>
-              <TableHead>Can Publish</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead>Foto</TableHead>
+              <TableHead>Publikasi</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -497,9 +501,9 @@ export default function StudentsFEPage() {
                   </TableCell>
                   <TableCell>
                     {student.can_publish ? (
-                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">Yes</Badge>
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">Ya</Badge>
                     ) : (
-                      <Badge variant="secondary">No</Badge>
+                      <Badge variant="secondary">Tidak</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -542,7 +546,7 @@ export default function StudentsFEPage() {
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-4 text-gray-500">
-                  No students found
+                  Tidak ada siswa ditemukan
                 </TableCell>
               </TableRow>
             )}

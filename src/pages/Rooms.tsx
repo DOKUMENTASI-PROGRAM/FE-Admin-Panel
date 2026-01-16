@@ -96,13 +96,13 @@ export default function RoomsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.rooms() });
       setIsOpen(false);
       form.reset();
-      toast({ title: "Success", description: "Room created successfully" });
+      toast({ title: "Berhasil", description: "Ruangan berhasil dibuat" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to create room" 
+        description: error.response?.data?.message || "Gagal membuat ruangan" 
       });
     },
   });
@@ -117,13 +117,13 @@ export default function RoomsPage() {
       setIsEditOpen(false);
       setSelectedRoom(null);
       editForm.reset();
-      toast({ title: "Success", description: "Room updated successfully" });
+      toast({ title: "Berhasil", description: "Ruangan berhasil diperbarui" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to update room" 
+        description: error.response?.data?.message || "Gagal memperbarui ruangan" 
       });
     },
   });
@@ -137,13 +137,13 @@ export default function RoomsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.rooms() });
       setIsDeleteOpen(false);
       setSelectedRoom(null);
-      toast({ title: "Success", description: "Room deleted successfully" });
+      toast({ title: "Berhasil", description: "Ruangan berhasil dihapus" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to delete room" 
+        description: error.response?.data?.message || "Gagal menghapus ruangan" 
       });
     },
   });
@@ -169,7 +169,7 @@ export default function RoomsPage() {
   };
 
   if (isLoading) return <TableSkeleton columnCount={4} rowCount={5} />;
-  if (error) return <div>Error loading rooms</div>;
+  if (error) return <div>Error memuat ruangan</div>;
 
   const rooms = roomsData?.data || [];
   const totalRooms = roomsData?.total || 0;
@@ -177,18 +177,18 @@ export default function RoomsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Rooms</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Ruangan</h2>
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" /> Add Room
+              <Plus className="mr-2 h-4 w-4" /> Tambah Ruangan
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Add Room</DialogTitle>
+              <DialogTitle>Tambah Ruangan</DialogTitle>
               <DialogDescription>
-                Create a new room for classes.
+                Buat ruangan baru untuk kelas.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -198,7 +198,7 @@ export default function RoomsPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>Nama</FormLabel>
                       <FormControl>
                         <Input placeholder="Studio A" {...field} />
                       </FormControl>
@@ -211,7 +211,7 @@ export default function RoomsPage() {
                   name="capacity"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Capacity</FormLabel>
+                      <FormLabel>Kapasitas</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="5" {...field} />
                       </FormControl>
@@ -224,9 +224,9 @@ export default function RoomsPage() {
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel>Deskripsi</FormLabel>
                       <FormControl>
-                        <Input placeholder="Main practice room" {...field} />
+                        <Input placeholder="Ruang latihan utama" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -234,7 +234,7 @@ export default function RoomsPage() {
                 />
                 <DialogFooter>
                   <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? "Saving..." : "Save changes"}
+                    {createMutation.isPending ? "Menyimpan..." : "Simpan"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -247,10 +247,10 @@ export default function RoomsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Capacity</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Nama</TableHead>
+              <TableHead>Kapasitas</TableHead>
+              <TableHead>Deskripsi</TableHead>
+              <TableHead>Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -275,7 +275,7 @@ export default function RoomsPage() {
                       size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleOpenDelete(room)}
-                      title="Delete"
+                      title="Hapus"
                     >
                       <Trash className="h-4 w-4" />
                     </Button>
@@ -300,9 +300,9 @@ export default function RoomsPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Room</DialogTitle>
+            <DialogTitle>Edit Ruangan</DialogTitle>
             <DialogDescription>
-              Update room information.
+              Perbarui informasi ruangan.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
@@ -312,7 +312,7 @@ export default function RoomsPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Nama</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -325,7 +325,7 @@ export default function RoomsPage() {
                 name="capacity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Capacity</FormLabel>
+                    <FormLabel>Kapasitas</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -338,7 +338,7 @@ export default function RoomsPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>Deskripsi</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -348,10 +348,10 @@ export default function RoomsPage() {
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
                 </Button>
               </DialogFooter>
             </form>
@@ -363,14 +363,14 @@ export default function RoomsPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the room "{selectedRoom?.name}". 
-              This action cannot be undone.
+              Tindakan ini akan menghapus ruangan "{selectedRoom?.name}" secara permanen. 
+              Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -379,7 +379,7 @@ export default function RoomsPage() {
                 }
               }}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -287,13 +287,13 @@ export default function BookingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
-      toast({ title: "Success", description: "Booking confirmed successfully" });
+      toast({ title: "Berhasil", description: "Booking berhasil dikonfirmasi" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to confirm booking" 
+        description: error.response?.data?.message || "Gagal mengonfirmasi booking" 
       });
     },
   });
@@ -305,13 +305,13 @@ export default function BookingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
-      toast({ title: "Success", description: "Booking cancelled successfully" });
+      toast({ title: "Berhasil", description: "Booking berhasil dibatalkan" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to cancel booking" 
+        description: error.response?.data?.message || "Gagal membatalkan booking" 
       });
     },
   });
@@ -328,13 +328,13 @@ export default function BookingsPage() {
       setIsAssignOpen(false);
       setSelectedBooking(null);
       setSelectedSlot("");
-      toast({ title: "Success", description: "Slot assigned successfully" });
+      toast({ title: "Berhasil", description: "Slot berhasil ditetapkan" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to assign slot" 
+        description: error.response?.data?.message || "Gagal menetapkan slot" 
       });
     },
   });
@@ -352,7 +352,7 @@ export default function BookingsPage() {
         toast({ 
           variant: "destructive", 
           title: "Error", 
-          description: "Could not find schedule information for selected slot" 
+          description: "Tidak dapat menemukan informasi jadwal untuk slot yang dipilih" 
         });
       }
     }
@@ -451,7 +451,7 @@ export default function BookingsPage() {
       const displayLabel = slotsMap[firstSlotId] || formatPreference(booking.first_preference);
       choices.push({
         id: firstSlotId,
-        label: `Choice 1: ${displayLabel}`,
+        label: `Pilihan 1: ${displayLabel}`,
         value: firstSlotId
       });
     }
@@ -460,7 +460,7 @@ export default function BookingsPage() {
       const displayLabel = slotsMap[secondSlotId] || formatPreference(booking.second_preference);
       choices.push({
         id: secondSlotId,
-        label: `Choice 2: ${displayLabel}`,
+        label: `Pilihan 2: ${displayLabel}`,
         value: secondSlotId
       });
     }
@@ -478,16 +478,16 @@ export default function BookingsPage() {
         // Show preference info in toast and open assign dialog
         const prefInfo: string[] = [];
         if (hasFirstPref) {
-          prefInfo.push(`Choice 1: ${formatPreference(booking.first_preference)}`);
+          prefInfo.push(`Pilihan 1: ${formatPreference(booking.first_preference)}`);
         }
         if (hasSecondPref) {
-          prefInfo.push(`Choice 2: ${formatPreference(booking.second_preference)}`);
+          prefInfo.push(`Pilihan 2: ${formatPreference(booking.second_preference)}`);
         }
         
         toast({ 
           variant: "default", 
-          title: "Schedule Not Found", 
-          description: `Applicant's preferences: ${prefInfo.join(', ')}. No matching schedule exists. Please create a schedule or assign manually.`
+          title: "Jadwal Tidak Ditemukan", 
+          description: `Preferensi pemohon: ${prefInfo.join(', ')}. Tidak ada jadwal yang cocok. Silakan buat jadwal atau tetapkan secara manual.`
         });
         setSelectedBooking(booking);
         setIsAssignOpen(true);
@@ -495,8 +495,8 @@ export default function BookingsPage() {
         // No preferences found at all
         toast({ 
           variant: "default", 
-          title: "No Preferences Found", 
-          description: "This booking has no schedule preferences. Please use 'Assign Schedule' to select a slot manually." 
+          title: "Preferensi Tidak Ditemukan", 
+          description: "Booking ini tidak memiliki preferensi jadwal. Silakan gunakan 'Tetapkan Jadwal' untuk memilih slot secara manual." 
         });
         setSelectedBooking(booking);
         setIsAssignOpen(true);
@@ -519,7 +519,7 @@ export default function BookingsPage() {
   };
 
   if (isLoading) return <TableSkeleton columnCount={8} rowCount={10} />;
-  if (error) return <div>Error loading bookings</div>;
+  if (error) return <div>Error memuat booking</div>;
 
   const bookings = data?.data || [];
   
@@ -596,15 +596,15 @@ export default function BookingsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>School</TableHead>
-              <TableHead>Course</TableHead>
-              <TableHead>First Choice</TableHead>
-              <TableHead>Second Choice</TableHead>
-              <TableHead>Confirmed Schedule</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>Nama</TableHead>
+              <TableHead>Sekolah</TableHead>
+              <TableHead>Kursus</TableHead>
+              <TableHead>Pilihan Pertama</TableHead>
+              <TableHead>Pilihan Kedua</TableHead>
+              <TableHead>Jadwal Terkonfirmasi</TableHead>
+              <TableHead>Tanggal</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -643,7 +643,7 @@ export default function BookingsPage() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
+                          <span className="sr-only">Buka menu</span>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -655,7 +655,7 @@ export default function BookingsPage() {
                           }}
                         >
                           <Calendar className="mr-2 h-4 w-4" />
-                          Assign Schedule
+                          Tetapkan Jadwal
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -672,7 +672,7 @@ export default function BookingsPage() {
                           className="text-green-600 focus:text-green-600"
                         >
                           <CheckCircle className="mr-2 h-4 w-4" />
-                          Confirm
+                          Konfirmasi
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -682,7 +682,7 @@ export default function BookingsPage() {
                           className="text-red-600 focus:text-red-600"
                         >
                           <XCircle className="mr-2 h-4 w-4" />
-                          Decline
+                          Tolak
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -705,9 +705,9 @@ export default function BookingsPage() {
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Booking Schedule</DialogTitle>
+            <DialogTitle>Konfirmasi Jadwal Booking</DialogTitle>
             <DialogDescription>
-              Please confirm the schedule to assign for this booking.
+              Silakan konfirmasi jadwal yang akan ditetapkan untuk booking ini.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -725,7 +725,7 @@ export default function BookingsPage() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsConfirmOpen(false)}>
-              Cancel
+              Batal
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -734,30 +734,30 @@ export default function BookingsPage() {
       <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Slot</DialogTitle>
+            <DialogTitle>Tetapkan Slot</DialogTitle>
             <DialogDescription>
-              Assign a time slot for {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || selectedBooking?.user_id}'s booking.
+              Tetapkan slot waktu untuk booking {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || selectedBooking?.user_id}.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {slots.length === 0 && (
               <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm text-yellow-800">
-                <p className="font-semibold mb-2">No matching schedules found</p>
+                <p className="font-semibold mb-2">Tidak ada jadwal yang cocok ditemukan</p>
                 <p className="text-xs mb-1">
-                  Course: <strong>{selectedBooking?.courses?.title || courseMap[selectedBooking?.course_id] || 'Unknown'}</strong>
+                  Kursus: <strong>{selectedBooking?.courses?.title || courseMap[selectedBooking?.course_id] || 'Tidak Diketahui'}</strong>
                 </p>
                 {(selectedBooking?.first_preference?.instructor_id || selectedBooking?.second_preference?.instructor_id) && (
                   <p className="text-xs mb-1">
-                    Preferred Instructor(s): <strong>
+                    Instruktur Pilihan: <strong>
                       {[
                         selectedBooking?.first_preference?.instructor_id && instructorMap[selectedBooking.first_preference.instructor_id],
                         selectedBooking?.second_preference?.instructor_id && instructorMap[selectedBooking.second_preference.instructor_id]
-                      ].filter(Boolean).join(', ') || 'Unknown'}
+                      ].filter(Boolean).join(', ') || 'Tidak Diketahui'}
                     </strong>
                   </p>
                 )}
                 <p className="text-xs text-gray-600 mb-2">
-                  Please create a schedule matching this course and instructor first.
+                  Silakan buat jadwal yang sesuai dengan kursus dan instruktur ini terlebih dahulu.
                 </p>
                 <details className="text-xs text-gray-500">
                   <summary className="cursor-pointer">Debug Info</summary>
@@ -775,7 +775,7 @@ export default function BookingsPage() {
               </Label>
               <Select onValueChange={setSelectedSlot} value={selectedSlot}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder={slots.length === 0 ? "No slots available" : "Select a slot"} />
+                  <SelectValue placeholder={slots.length === 0 ? "Tidak ada slot tersedia" : "Pilih slot"} />
                 </SelectTrigger>
                 <SelectContent>
                   {slots.length > 0 ? (
@@ -790,7 +790,7 @@ export default function BookingsPage() {
                       );
                     })
                   ) : (
-                    <div className="p-2 text-sm text-gray-500">No slots available for this course</div>
+                    <div className="p-2 text-sm text-gray-500">Tidak ada slot tersedia untuk kursus ini</div>
                   )}
                 </SelectContent>
               </Select>
@@ -798,7 +798,7 @@ export default function BookingsPage() {
           </div>
           <DialogFooter>
             <Button onClick={handleAssignSlot} disabled={assignSlotMutation.isPending || slots.length === 0}>
-              {assignSlotMutation.isPending ? "Assigning..." : "Assign Slot"}
+              {assignSlotMutation.isPending ? "Menetapkan..." : "Tetapkan Slot"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -940,13 +940,13 @@ export default function BookingsPage() {
       <AlertDialog open={isDeclineOpen} onOpenChange={setIsDeclineOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Decline Booking?</AlertDialogTitle>
+            <AlertDialogTitle>Tolak Booking?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently decline the booking for {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || 'this user'}.
+              Tindakan ini tidak dapat dibatalkan. Ini akan menolak booking secara permanen untuk {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || 'pengguna ini'}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => {
                 cancelMutation.mutate(selectedBooking?.id);
@@ -954,7 +954,7 @@ export default function BookingsPage() {
               }} 
               className="bg-red-600 hover:bg-red-700"
             >
-              Decline
+              Tolak
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

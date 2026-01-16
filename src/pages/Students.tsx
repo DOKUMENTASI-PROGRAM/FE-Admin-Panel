@@ -502,13 +502,13 @@ export default function StudentsPage() {
       createForm.reset();
       setSelectedCourseId("");
       setPhotoPreview(null);
-      const message = response.data?.meta?.message || "Student and booking created successfully";
-      toast({ title: "Success", description: message });
+      const message = response.data?.meta?.message || "Siswa dan booking berhasil dibuat";
+      toast({ title: "Berhasil", description: message });
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.error?.message 
         || error.response?.data?.message 
-        || "Failed to create student";
+        || "Gagal membuat siswa";
       toast({ 
         variant: "destructive", 
         title: "Error", 
@@ -528,13 +528,13 @@ export default function StudentsPage() {
       setSelectedStudent(null);
       editForm.reset();
       setEditPhotoPreview(null);
-      toast({ title: "Success", description: "Student updated successfully" });
+      toast({ title: "Berhasil", description: "Siswa berhasil diperbarui" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to update student" 
+        description: error.response?.data?.message || "Gagal memperbarui siswa" 
       });
     },
   });
@@ -547,13 +547,13 @@ export default function StudentsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.students() });
       setIsDeleteOpen(false);
       setSelectedStudent(null);
-      toast({ title: "Success", description: "Student deleted successfully" });
+      toast({ title: "Berhasil", description: "Siswa berhasil dihapus" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to delete student" 
+        description: error.response?.data?.message || "Gagal menghapus siswa" 
       });
     },
   });
@@ -669,12 +669,12 @@ export default function StudentsPage() {
   };
 
   if (isStudentsLoading || isBookingsLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
-  if (studentsError || bookingsError) return <div className="p-4 text-red-500">Error loading data</div>;
+  if (studentsError || bookingsError) return <div className="p-4 text-red-500">Gagal memuat data</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Students</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Siswa</h2>
         <Dialog open={isCreateOpen} onOpenChange={(open) => {
           setIsCreateOpen(open);
           if (!open) {
@@ -688,12 +688,12 @@ export default function StudentsPage() {
         }}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" /> Add Student
+              <Plus className="mr-2 h-4 w-4" /> Tambah Siswa
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add Student</DialogTitle>
+              <DialogTitle>Tambah Siswa</DialogTitle>
               <DialogDescription>
                 Tambah siswa baru dengan booking otomatis.
               </DialogDescription>
@@ -1119,14 +1119,14 @@ export default function StudentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Photo</TableHead>
-              <TableHead>Name</TableHead>
+              <TableHead>Foto</TableHead>
+              <TableHead>Nama</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>School</TableHead>
-              <TableHead>Course</TableHead>
-              <TableHead>Schedules</TableHead>
-              <TableHead>Can Publish</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead>Sekolah</TableHead>
+              <TableHead>Kursus</TableHead>
+              <TableHead>Jadwal</TableHead>
+              <TableHead>Izin Publikasi</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1163,9 +1163,9 @@ export default function StudentsPage() {
                   </TableCell>
                   <TableCell>
                     {(fullStudentMap[`booking_${booking.id}`]?.can_publish || fullStudentMap[booking.user_id]?.can_publish) ? (
-                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">Yes</Badge>
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">Ya</Badge>
                     ) : (
-                      <Badge variant="secondary">No</Badge>
+                      <Badge variant="secondary">Tidak</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -1312,7 +1312,7 @@ export default function StudentsPage() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                  No confirmed students found
+                  Tidak ada siswa terkonfirmasi ditemukan
                 </TableCell>
               </TableRow>
             )}

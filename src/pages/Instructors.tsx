@@ -48,7 +48,7 @@ const SPECIALIZATION_OPTIONS: Option[] = [
   { label: 'Piano', value: 'Piano' },
   { label: 'Drum', value: 'Drum' },
   { label: 'Bass', value: 'Bass' },
-  { label: 'Guitar', value: 'Guitar' },
+  { label: 'Gitar', value: 'Guitar' },
   { label: 'Keyboard', value: 'Keyboard' }
 ];
 
@@ -136,13 +136,13 @@ export default function InstructorsPage() {
       createForm.reset();
       setCreatePhotoPreview(null);
       if (createFileInputRef.current) createFileInputRef.current.value = '';
-      toast({ title: "Success", description: "Instructor created successfully" });
+      toast({ title: "Berhasil", description: "Instruktur berhasil dibuat" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to create instructor" 
+        description: error.response?.data?.message || "Gagal membuat instruktur" 
       });
     },
   });
@@ -159,13 +159,13 @@ export default function InstructorsPage() {
       editForm.reset();
       setEditPhotoPreview(null);
       if (editFileInputRef.current) editFileInputRef.current.value = '';
-      toast({ title: "Success", description: "Instructor updated successfully" });
+      toast({ title: "Berhasil", description: "Instruktur berhasil diperbarui" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to update instructor" 
+        description: error.response?.data?.message || "Gagal memperbarui instruktur" 
       });
     },
   });
@@ -179,13 +179,13 @@ export default function InstructorsPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.instructors() });
       setIsDeleteOpen(false);
       setSelectedInstructor(null);
-      toast({ title: "Success", description: "Instructor deleted successfully" });
+      toast({ title: "Berhasil", description: "Instruktur berhasil dihapus" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to delete instructor" 
+        description: error.response?.data?.message || "Gagal menghapus instruktur" 
       });
     },
   });
@@ -237,7 +237,7 @@ export default function InstructorsPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Invalid file format. Use JPEG, PNG, WebP, or GIF."
+        description: "Format file tidak valid. Gunakan JPEG, PNG, WebP, atau GIF."
       });
       return;
     }
@@ -247,7 +247,7 @@ export default function InstructorsPage() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "File size must be less than 5MB."
+        description: "Ukuran file harus kurang dari 5MB."
       });
       return;
     }
@@ -275,14 +275,14 @@ export default function InstructorsPage() {
       }
 
       toast({
-        title: "Success",
-        description: "Photo uploaded successfully"
+        title: "Berhasil",
+        description: "Foto berhasil diunggah"
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to upload photo"
+        description: error.message || "Gagal mengunggah foto"
       });
       // Reset preview on error
       if (isEdit) {
@@ -312,7 +312,7 @@ export default function InstructorsPage() {
   };
 
   if (isLoading) return <TableSkeleton columnCount={6} rowCount={10} />;
-  if (error) return <div className="p-4 text-red-500">Error loading instructors</div>;
+  if (error) return <div className="p-4 text-red-500">Error memuat instruktur</div>;
 
   const instructors = data?.data || [];
 
@@ -339,20 +339,20 @@ export default function InstructorsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Instructors</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Instruktur</h2>
         
         {/* Create Instructor Dialog */}
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" /> Create Instructor
+              <Plus className="mr-2 h-4 w-4" /> Buat Instruktur
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Create Instructor</DialogTitle>
+              <DialogTitle>Buat Instruktur</DialogTitle>
               <DialogDescription>
-                Add a new instructor to the system. An account will be created for them.
+                Tambahkan instruktur baru ke sistem. Akun akan dibuat untuk mereka.
               </DialogDescription>
             </DialogHeader>
             <Form {...createForm}>
@@ -375,9 +375,9 @@ export default function InstructorsPage() {
                   name="full_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name *</FormLabel>
+                      <FormLabel>Nama Lengkap *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Jane Smith" {...field} />
+                        <Input placeholder="Nama Instruktur" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -389,7 +389,7 @@ export default function InstructorsPage() {
                   name="wa_number"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>WhatsApp Number</FormLabel>
+                      <FormLabel>Nomor WhatsApp</FormLabel>
                       <FormControl>
                         <Input placeholder="+628123456789" {...field} />
                       </FormControl>
@@ -403,13 +403,13 @@ export default function InstructorsPage() {
                   name="specialization"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Specialization</FormLabel>
+                      <FormLabel>Spesialisasi</FormLabel>
                       <FormControl>
                         <MultiSelect
                           options={SPECIALIZATION_OPTIONS}
                           selected={field.value || []}
                           onChange={field.onChange}
-                          placeholder="Select specializations..."
+                          placeholder="Pilih spesialisasi..."
                           className="w-full"
                         />
                       </FormControl>
@@ -422,13 +422,13 @@ export default function InstructorsPage() {
                   name="teaching_categories"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Teaching Categories</FormLabel>
+                      <FormLabel>Kategori Mengajar</FormLabel>
                       <FormControl>
                         <MultiSelect
                           options={TEACHING_CATEGORY_OPTIONS}
                           selected={field.value || []}
                           onChange={field.onChange}
-                          placeholder="Select categories..."
+                          placeholder="Pilih kategori..."
                           className="w-full"
                         />
                       </FormControl>
@@ -443,7 +443,7 @@ export default function InstructorsPage() {
                     <FormItem>
                       <FormLabel>Bio</FormLabel>
                       <FormControl>
-                        <Input placeholder="Experienced music instructor..." {...field} />
+                        <Input placeholder="Instruktur musik berpengalaman..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -454,7 +454,7 @@ export default function InstructorsPage() {
                   name="photo_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Photo</FormLabel>
+                      <FormLabel>Foto</FormLabel>
                       <FormControl>
                         <div className="space-y-4">
                           <Input
@@ -492,14 +492,14 @@ export default function InstructorsPage() {
                                 className="cursor-pointer"
                               />
                               <p className="text-xs text-muted-foreground mt-2">
-                                Max size 5MB. Supported formats: JPG, PNG, WebP, GIF.
+                                Ukuran maks 5MB. Format: JPG, PNG, WebP, GIF.
                               </p>
                             </div>
                           </div>
                           {isUploading && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Loader2 className="h-4 w-4 animate-spin" />
-                              Uploading...
+                              Mengunggah...
                             </div>
                           )}
                         </div>
@@ -510,10 +510,10 @@ export default function InstructorsPage() {
                 />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                    Cancel
+                    Batal
                   </Button>
                   <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? "Creating..." : "Create Instructor"}
+                    {createMutation.isPending ? "Membuat..." : "Buat Instruktur"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -527,12 +527,12 @@ export default function InstructorsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Nama</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>WhatsApp</TableHead>
-              <TableHead>Specialization</TableHead>
-              <TableHead>Teaching Categories</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Spesialisasi</TableHead>
+              <TableHead>Kategori Mengajar</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -550,7 +550,7 @@ export default function InstructorsPage() {
                       size="icon"
                       className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                       onClick={() => handleOpenView(instructor)}
-                      title="View Details"
+                      title="Lihat Detail"
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -568,7 +568,7 @@ export default function InstructorsPage() {
                       size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => handleOpenDelete(instructor)}
-                      title="Delete"
+                      title="Hapus"
                     >
                       <Trash className="h-4 w-4" />
                     </Button>
@@ -578,7 +578,7 @@ export default function InstructorsPage() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                  No instructors found
+                  Tidak ada instruktur ditemukan
                 </TableCell>
               </TableRow>
             )}
@@ -597,7 +597,7 @@ export default function InstructorsPage() {
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Instructor Details</DialogTitle>
+            <DialogTitle>Detail Instruktur</DialogTitle>
           </DialogHeader>
           {selectedInstructor && (
             <div className="space-y-6">
@@ -623,7 +623,7 @@ export default function InstructorsPage() {
                     <Badge variant="secondary" className="px-3 py-1 text-base">
                       {Array.isArray(selectedInstructor.specialization) 
                         ? selectedInstructor.specialization.join(', ') 
-                        : (selectedInstructor.specialization || 'General Instructor')}
+                        : (selectedInstructor.specialization || 'Instruktur Umum')}
                     </Badge>
                   </div>
                 </div>
@@ -632,7 +632,7 @@ export default function InstructorsPage() {
 
                 {/* Contact Information */}
                 <div>
-                  <h3 className="font-semibold text-lg border-b pb-2 mb-3">Contact Information</h3>
+                  <h3 className="font-semibold text-lg border-b pb-2 mb-3">Informasi Kontak</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-500">Email</label>
@@ -647,19 +647,19 @@ export default function InstructorsPage() {
 
                 {/* Additional Info */}
                 <div>
-                  <h3 className="font-semibold text-lg border-b pb-2 mb-3">Additional Info</h3>
+                  <h3 className="font-semibold text-lg border-b pb-2 mb-3">Info Tambahan</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-500">Bio</label>
                       <p className="text-sm leading-relaxed text-foreground/90">
-                        {selectedInstructor.bio || 'No bio available.'}
+                        {selectedInstructor.bio || 'Tidak ada bio.'}
                       </p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Joined</label>
+                      <label className="text-sm font-medium text-gray-500">Bergabung</label>
                       <p className="text-sm">
                         {selectedInstructor.created_at 
-                          ? new Date(selectedInstructor.created_at).toLocaleDateString("en-US", {
+                          ? new Date(selectedInstructor.created_at).toLocaleDateString("id-ID", {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'
@@ -673,7 +673,7 @@ export default function InstructorsPage() {
           )}
           <DialogFooter>
             <Button onClick={() => setIsViewOpen(false)}>
-              Close
+              Tutup
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -683,9 +683,9 @@ export default function InstructorsPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Edit Instructor</DialogTitle>
+            <DialogTitle>Edit Instruktur</DialogTitle>
             <DialogDescription>
-              Update instructor information.
+              Perbarui informasi instruktur.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
@@ -695,7 +695,7 @@ export default function InstructorsPage() {
                 name="full_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Full Name *</FormLabel>
+                    <FormLabel>Nama Lengkap *</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -708,7 +708,7 @@ export default function InstructorsPage() {
                   name="wa_number"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>WhatsApp Number</FormLabel>
+                      <FormLabel>Nomor WhatsApp</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -721,13 +721,13 @@ export default function InstructorsPage() {
                 name="specialization"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Specialization</FormLabel>
+                    <FormLabel>Spesialisasi</FormLabel>
                     <FormControl>
                         <MultiSelect
                           options={SPECIALIZATION_OPTIONS}
                           selected={field.value || []}
                           onChange={field.onChange}
-                          placeholder="Select specializations..."
+                          placeholder="Pilih spesialisasi..."
                           className="w-full"
                         />
                     </FormControl>
@@ -740,13 +740,13 @@ export default function InstructorsPage() {
                 name="teaching_categories"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Teaching Categories</FormLabel>
+                    <FormLabel>Kategori Mengajar</FormLabel>
                     <FormControl>
                       <MultiSelect
                         options={TEACHING_CATEGORY_OPTIONS}
                         selected={field.value || []}
                         onChange={field.onChange}
-                        placeholder="Select categories..."
+                        placeholder="Pilih kategori..."
                         className="w-full"
                       />
                     </FormControl>
@@ -772,7 +772,7 @@ export default function InstructorsPage() {
                 name="photo_url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Photo</FormLabel>
+                    <FormLabel>Foto</FormLabel>
                     <FormControl>
                       <div className="space-y-4">
                         <Input
@@ -810,14 +810,14 @@ export default function InstructorsPage() {
                               className="cursor-pointer"
                             />
                             <p className="text-xs text-muted-foreground mt-2">
-                              Max size 5MB. Supported formats: JPG, PNG, WebP, GIF.
+                              Ukuran maks 5MB. Format: JPG, PNG, WebP, GIF.
                             </p>
                           </div>
                         </div>
                         {isUploading && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Uploading...
+                            Mengunggah...
                           </div>
                         )}
                       </div>
@@ -828,10 +828,10 @@ export default function InstructorsPage() {
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
                 </Button>
               </DialogFooter>
             </form>
@@ -843,14 +843,14 @@ export default function InstructorsPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the instructor "{selectedInstructor?.full_name}". 
-              This action cannot be undone.
+              Tindakan ini akan menghapus instruktur "{selectedInstructor?.full_name}" secara permanen. 
+              Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -859,7 +859,7 @@ export default function InstructorsPage() {
                 }
               }}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

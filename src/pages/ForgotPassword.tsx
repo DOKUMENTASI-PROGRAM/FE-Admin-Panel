@@ -12,7 +12,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { supabase } from '@/lib/supabase';
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address" }),
+  email: z.string().email({ message: "Format email tidak valid" }),
 });
 
 export default function ForgotPassword() {
@@ -38,8 +38,8 @@ export default function ForgotPassword() {
       }
 
       toast({
-        title: "Email Sent",
-        description: "Check your email for the password reset link.",
+        title: "Email Terkirim",
+        description: "Periksa email Anda untuk link reset password.",
       });
       // Optional: Navigate back to login or stay on page
       // navigate('/login'); 
@@ -48,7 +48,7 @@ export default function ForgotPassword() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to send reset email.",
+        description: error.message || "Gagal mengirim email reset.",
       });
     } finally {
       setIsLoading(false);
@@ -59,8 +59,8 @@ export default function ForgotPassword() {
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-[400px]">
         <CardHeader>
-          <CardTitle>Forgot Password</CardTitle>
-          <CardDescription>Enter your email to receive a password reset link.</CardDescription>
+          <CardTitle>Lupa Password</CardTitle>
+          <CardDescription>Masukkan email Anda untuk menerima link reset password.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -82,10 +82,10 @@ export default function ForgotPassword() {
                 {isLoading ? (
                   <>
                     <LoadingSpinner className="mr-2 h-4 w-4" />
-                    Sending...
+                    Mengirim...
                   </>
                 ) : (
-                  "Send Reset Link"
+                  "Kirim Link Reset"
                 )}
               </Button>
             </form>
@@ -93,7 +93,7 @@ export default function ForgotPassword() {
         </CardContent>
         <CardFooter className="flex justify-center">
             <Link to="/login" className="text-sm text-blue-600 hover:text-blue-800">
-                Back to Login
+                Kembali ke Login
             </Link>
         </CardFooter>
       </Card>

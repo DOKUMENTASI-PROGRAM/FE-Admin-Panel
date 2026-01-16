@@ -49,10 +49,10 @@ import { TableSkeleton } from '@/components/TableSkeleton';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 
 const updateCourseSchema = z.object({
-  title: z.string().min(2, "Title is required"),
+  title: z.string().min(2, "Judul wajib diisi"),
   description: z.string().optional(),
-  instrument: z.string().min(1, "Instrument is required"),
-  level: z.string().min(1, "Level is required"),
+  instrument: z.string().min(1, "Instrumen wajib dipilih"),
+  level: z.string().min(1, "Level wajib dipilih"),
   duration_minutes: z.coerce.number().min(1),
   price_per_session: z.coerce.number().min(0),
   max_students: z.coerce.number().min(1),
@@ -168,13 +168,13 @@ export default function CoursesPage() {
       setIsEditOpen(false);
       setSelectedCourse(null);
       editForm.reset();
-      toast({ title: "Success", description: "Course updated successfully" });
+      toast({ title: "Berhasil", description: "Kursus berhasil diperbarui" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to update course" 
+        description: error.response?.data?.message || "Gagal memperbarui kursus" 
       });
     },
   });
@@ -188,13 +188,13 @@ export default function CoursesPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.courses() });
       setIsDeleteOpen(false);
       setSelectedCourse(null);
-      toast({ title: "Success", description: "Course deleted successfully" });
+      toast({ title: "Berhasil", description: "Kursus berhasil dihapus" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Failed to delete course" 
+        description: error.response?.data?.message || "Gagal menghapus kursus" 
       });
     },
   });
@@ -221,7 +221,7 @@ export default function CoursesPage() {
   }
 
   if (isLoading) return <TableSkeleton columnCount={7} rowCount={10} />;
-  if (error) return <div>Error loading courses</div>;
+  if (error) return <div>Error memuat kursus</div>;
 
   return (
     <div className="space-y-6">
@@ -229,11 +229,11 @@ export default function CoursesPage() {
         <div className="flex items-center gap-4">
             {selectedBatch && (
                 <Button variant="outline" onClick={() => setSelectedBatch(null)}>
-                    &larr; Back to Batches
+                    &larr; Kembali ke Batch
                 </Button>
             )}
             <h2 className="text-3xl font-bold tracking-tight">
-                {selectedBatch ? `Courses: ${selectedBatch}` : "Course Batches"}
+                {selectedBatch ? `Kursus: ${selectedBatch}` : "Batch Kursus"}
             </h2>
         </div>
         <CreateCourseDialog />
@@ -245,11 +245,11 @@ export default function CoursesPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Instrument</TableHead>
-                        <TableHead>Total Courses</TableHead>
-                        <TableHead>Active Courses</TableHead>
-                        <TableHead>Types</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>Instrumen</TableHead>
+                        <TableHead>Total Kursus</TableHead>
+                        <TableHead>Kursus Aktif</TableHead>
+                        <TableHead>Tipe</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -258,12 +258,12 @@ export default function CoursesPage() {
                             <TableCell className="font-medium text-sm">{batch.instrument}</TableCell>
                             <TableCell>
                                 <Badge variant="secondary" className="text-xs">
-                                    {batch.total} Courses
+                                    {batch.total} Kursus
                                 </Badge>
                             </TableCell>
                             <TableCell>
                                 <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                                    {batch.active} Active
+                                    {batch.active} Aktif
                                 </Badge>
                             </TableCell>
                             <TableCell>
@@ -277,7 +277,7 @@ export default function CoursesPage() {
                             </TableCell>
                             <TableCell className="text-right">
                                 <Button size="sm" onClick={() => setSelectedBatch(batch.instrument)}>
-                                    See Detail
+                                    Lihat Detail
                                 </Button>
                             </TableCell>
                         </TableRow>
@@ -285,7 +285,7 @@ export default function CoursesPage() {
                     {batches.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                No courses found. Create a course to get started.
+                                Tidak ada kursus ditemukan. Buat kursus untuk memulai.
                             </TableCell>
                         </TableRow>
                     )}
@@ -297,12 +297,12 @@ export default function CoursesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Instrument</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead>Judul</TableHead>
+                      <TableHead>Instrumen</TableHead>
+                      <TableHead>Tipe</TableHead>
                       <TableHead>Level</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -314,7 +314,7 @@ export default function CoursesPage() {
                         <TableCell>{course.level}</TableCell>
                         <TableCell>
                           <Badge variant={course.is_active ? 'default' : 'secondary'}>
-                            {course.is_active ? 'active' : 'inactive'}
+                            {course.is_active ? 'aktif' : 'tidak aktif'}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -324,7 +324,7 @@ export default function CoursesPage() {
                         size="icon"
                         className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         onClick={() => handleOpenView(course)}
-                        title="View Details"
+                        title="Lihat Detail"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -342,7 +342,7 @@ export default function CoursesPage() {
                         size="icon"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleOpenDelete(course)}
-                        title="Delete"
+                        title="Hapus"
                       >
                         <Trash className="h-4 w-4" />
                       </Button>
@@ -353,7 +353,7 @@ export default function CoursesPage() {
                     {paginatedCourses.length === 0 && (
                         <TableRow>
                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                No courses found in this batch.
+                                Tidak ada kursus ditemukan di batch ini.
                             </TableCell>
                         </TableRow>
                     )}
@@ -375,29 +375,29 @@ export default function CoursesPage() {
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Course Details</DialogTitle>
+            <DialogTitle>Detail Kursus</DialogTitle>
           </DialogHeader>
           {selectedCourse && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Title</label>
+                  <label className="text-sm font-medium text-gray-500">Judul</label>
                   <p className="text-sm font-semibold">{selectedCourse.title || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Type</label>
+                  <label className="text-sm font-medium text-gray-500">Tipe</label>
                   <p className="text-sm capitalize">{selectedCourse.type_course || '-'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Status</label>
                   <p className="text-sm">
                     <Badge variant={selectedCourse.is_active ? 'default' : 'secondary'}>
-                      {selectedCourse.is_active ? 'Active' : 'Inactive'}
+                      {selectedCourse.is_active ? 'Aktif' : 'Tidak Aktif'}
                     </Badge>
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Instrument</label>
+                  <label className="text-sm font-medium text-gray-500">Instrumen</label>
                   <p className="text-sm">{selectedCourse.instrument || '-'}</p>
                 </div>
                 <div>
@@ -405,15 +405,15 @@ export default function CoursesPage() {
                   <p className="text-sm">{selectedCourse.level || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Max Students</label>
+                  <label className="text-sm font-medium text-gray-500">Maks Siswa</label>
                   <p className="text-sm">{selectedCourse.max_students || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Duration (Minutes)</label>
+                  <label className="text-sm font-medium text-gray-500">Durasi (Menit)</label>
                   <p className="text-sm">{selectedCourse.duration_minutes || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Price per Session</label>
+                  <label className="text-sm font-medium text-gray-500">Harga per Sesi</label>
                   <p className="text-sm">
                     {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' })
                       .format(selectedCourse.price_per_session || selectedCourse.price || 0)}
@@ -422,14 +422,14 @@ export default function CoursesPage() {
 
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">Description</label>
+                <label className="text-sm font-medium text-gray-500">Deskripsi</label>
                 <p className="text-sm">{selectedCourse.description || '-'}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">Created At</label>
+                <label className="text-sm font-medium text-gray-500">Dibuat Pada</label>
                 <p className="text-sm">
                   {selectedCourse.created_at 
-                    ? new Date(selectedCourse.created_at).toLocaleDateString() 
+                    ? new Date(selectedCourse.created_at).toLocaleDateString("id-ID") 
                     : '-'}
                 </p>
               </div>
@@ -437,7 +437,7 @@ export default function CoursesPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsViewOpen(false)}>
-              Close
+              Tutup
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -447,9 +447,9 @@ export default function CoursesPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Course</DialogTitle>
+            <DialogTitle>Edit Kursus</DialogTitle>
             <DialogDescription>
-              Update course information.
+              Perbarui informasi kursus.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
@@ -459,7 +459,7 @@ export default function CoursesPage() {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Title</FormLabel>
+                    <FormLabel>Judul</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -472,7 +472,7 @@ export default function CoursesPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>Deskripsi</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -486,16 +486,16 @@ export default function CoursesPage() {
                   name="instrument"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Instrument</FormLabel>
+                      <FormLabel>Instrumen</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select instrument" />
+                            <SelectValue placeholder="Pilih instrumen" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="Piano">Piano</SelectItem>
-                          <SelectItem value="Guitar">Guitar</SelectItem>
+                          <SelectItem value="Guitar">Gitar</SelectItem>
                           <SelectItem value="Vokal">Vokal</SelectItem>
                           <SelectItem value="Drum">Drum</SelectItem>
                           <SelectItem value="Bass">Bass</SelectItem>
@@ -515,13 +515,13 @@ export default function CoursesPage() {
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select level" />
+                            <SelectValue placeholder="Pilih level" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="beginner">Beginner</SelectItem>
-                          <SelectItem value="intermediate">Intermediate</SelectItem>
-                          <SelectItem value="advanced">Advanced</SelectItem>
+                          <SelectItem value="beginner">Pemula (Beginner)</SelectItem>
+                          <SelectItem value="intermediate">Menengah (Intermediate)</SelectItem>
+                          <SelectItem value="advanced">Lanjutan (Advanced)</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -535,7 +535,7 @@ export default function CoursesPage() {
                   name="max_students"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Max Students</FormLabel>
+                      <FormLabel>Maks Siswa</FormLabel>
                       <FormControl>
                         <Input type="number" {...field} />
                       </FormControl>
@@ -550,7 +550,7 @@ export default function CoursesPage() {
                   name="duration_minutes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Duration (Minutes)</FormLabel>
+                      <FormLabel>Durasi (Menit)</FormLabel>
                       <FormControl>
                         <Input type="number" {...field} />
                       </FormControl>
@@ -563,7 +563,7 @@ export default function CoursesPage() {
                   name="price_per_session"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price per Session</FormLabel>
+                      <FormLabel>Harga per Sesi</FormLabel>
                       <FormControl>
                         <Input type="number" {...field} />
                       </FormControl>
@@ -588,8 +588,8 @@ export default function CoursesPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="true">Active</SelectItem>
-                        <SelectItem value="false">Inactive</SelectItem>
+                        <SelectItem value="true">Aktif</SelectItem>
+                        <SelectItem value="false">Tidak Aktif</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -601,11 +601,11 @@ export default function CoursesPage() {
                 name="type_course"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course Type</FormLabel>
+                    <FormLabel>Tipe Kursus</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select course type" />
+                          <SelectValue placeholder="Pilih tipe kursus" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -622,10 +622,10 @@ export default function CoursesPage() {
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                  {updateMutation.isPending ? "Menyimpan..." : "Simpan Perubahan"}
                 </Button>
               </DialogFooter>
             </form>
@@ -637,14 +637,14 @@ export default function CoursesPage() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the course "{selectedCourse?.title}". 
-              This action cannot be undone.
+              Tindakan ini akan menghapus kursus "{selectedCourse?.title}" secara permanen. 
+              Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -653,7 +653,7 @@ export default function CoursesPage() {
                 }
               }}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
