@@ -137,6 +137,13 @@ export default function SchedulesPage() {
   // Reset edit form when selected schedule changes
   useEffect(() => {
     if (selectedSchedule) {
+      const course = courses.find((c: any) => c.id === selectedSchedule.course_id);
+      if (course && course.instrument) {
+        setEditInstrument(course.instrument);
+      } else {
+        setEditInstrument("");
+      }
+
       editForm.reset({
         course_id: selectedSchedule.course_id || "",
         instructor_id: selectedSchedule.instructor_id || "",
@@ -235,6 +242,64 @@ export default function SchedulesPage() {
   const instructors = instructorsData?.data || [];
   const rooms = roomsData?.data || [];
 
+  const [createInstrument, setCreateInstrument] = useState<string>("");
+  const [editInstrument, setEditInstrument] = useState<string>("");
+
+  const uniqueInstruments = Array.from(new Set(courses.map((c: any) => c.instrument).filter(Boolean))) as string[];
+
+  // Filter Logic for Create Form
+  const filteredCreateCourses = courses.filter((c: any) => 
+    !createInstrument || (c.instrument && c.instrument === createInstrument)
+  );
+
+  const createSelectedCourseId = createForm.watch("course_id");
+  const createSelectedCourse = courses.find((c: any) => c.id === createSelectedCourseId);
+
+  const filteredCreateInstructors = instructors.filter((instructor: any) => {
+    if (!createSelectedCourse) return false;
+    
+    // Normalizing strings for comparison
+    const courseInstrument = createSelectedCourse.instrument?.toLowerCase();
+    const courseType = createSelectedCourse.type_course?.toLowerCase();
+    
+    if (!courseInstrument || !courseType) return false;
+
+    // Check specialization (array of strings)
+    const hasSpecialization = Array.isArray(instructor.specialization) && 
+      instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
+
+    // Check teaching_categories (array of strings)
+    const hasCategory = Array.isArray(instructor.teaching_categories) && 
+      instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
+
+    return hasSpecialization && hasCategory;
+  });
+
+  // Filter Logic for Edit Form
+  const filteredEditCourses = courses.filter((c: any) => 
+    !editInstrument || (c.instrument && c.instrument === editInstrument)
+  );
+
+  const editSelectedCourseId = editForm.watch("course_id");
+  const editSelectedCourse = courses.find((c: any) => c.id === editSelectedCourseId);
+
+  const filteredEditInstructors = instructors.filter((instructor: any) => {
+    if (!editSelectedCourse) return false;
+    
+    const courseInstrument = editSelectedCourse.instrument?.toLowerCase();
+    const courseType = editSelectedCourse.type_course?.toLowerCase();
+    
+    if (!courseInstrument || !courseType) return false;
+
+    const hasSpecialization = Array.isArray(instructor.specialization) && 
+      instructor.specialization.some((s: string) => s.toLowerCase() === courseInstrument);
+
+    const hasCategory = Array.isArray(instructor.teaching_categories) && 
+      instructor.teaching_categories.some((c: string) => c.toLowerCase() === courseType);
+
+    return hasSpecialization && hasCategory;
+  });
+
   // Build lookup maps
   const courseMap: { [key: string]: string } = {};
   courses.forEach((course: any) => {
@@ -330,58 +395,96 @@ export default function SchedulesPage() {
             </DialogHeader>
             <Form {...createForm}>
               <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={createForm.control}
-                    name="course_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Course</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select course" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {courses.map((course: any) => (
-                              <SelectItem key={course.id} value={course.id}>
-                                {course.title || course.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={createForm.control}
-                    name="instructor_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Instructor</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select instructor" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {instructors.map((instructor: any) => (
-                              <SelectItem 
-                                key={instructor.user_id || instructor.id} 
-                                value={instructor.user_id || instructor.id}
-                              >
-                                {instructor.full_name || instructor.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="space-y-4">
+                  <FormItem>
+                    <FormLabel>Instrument</FormLabel>
+                    <Select 
+                      onValueChange={(value) => {
+                        setCreateInstrument(value);
+                        createForm.setValue("course_id", "");
+                        createForm.setValue("instructor_id", "");
+                      }} 
+                      value={createInstrument}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select instrument" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {uniqueInstruments.map((instrument) => (
+                          <SelectItem key={instrument} value={instrument}>
+                            {instrument}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={createForm.control}
+                      name="course_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Course</FormLabel>
+                          <Select 
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              createForm.setValue("instructor_id", "");
+                            }} 
+                            value={field.value}
+                            disabled={!createInstrument}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select course" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredCreateCourses.map((course: any) => (
+                                <SelectItem key={course.id} value={course.id}>
+                                  {course.title || course.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={createForm.control}
+                      name="instructor_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Instructor</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value}
+                            disabled={!createSelectedCourseId}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select instructor" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {filteredCreateInstructors.map((instructor: any) => (
+                                <SelectItem 
+                                  key={instructor.user_id || instructor.id} 
+                                  value={instructor.user_id || instructor.id}
+                                >
+                                  {instructor.full_name || instructor.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -629,58 +732,96 @@ export default function SchedulesPage() {
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="course_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Course</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select course" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {courses.map((course: any) => (
-                            <SelectItem key={course.id} value={course.id}>
-                              {course.title || course.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="instructor_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Instructor</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select instructor" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {instructors.map((instructor: any) => (
-                            <SelectItem 
-                              key={instructor.user_id || instructor.id} 
-                              value={instructor.user_id || instructor.id}
-                            >
-                              {instructor.full_name || instructor.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="space-y-4">
+                <FormItem>
+                  <FormLabel>Instrument</FormLabel>
+                  <Select 
+                    onValueChange={(value) => {
+                      setEditInstrument(value);
+                      editForm.setValue("course_id", "");
+                      editForm.setValue("instructor_id", "");
+                    }} 
+                    value={editInstrument}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select instrument" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {uniqueInstruments.map((instrument) => (
+                        <SelectItem key={instrument} value={instrument}>
+                          {instrument}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="course_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Course</FormLabel>
+                        <Select 
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            editForm.setValue("instructor_id", "");
+                          }} 
+                          value={field.value}
+                          disabled={!editInstrument}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select course" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredEditCourses.map((course: any) => (
+                              <SelectItem key={course.id} value={course.id}>
+                                {course.title || course.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="instructor_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instructor</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={!editSelectedCourseId}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select instructor" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredEditInstructors.map((instructor: any) => (
+                              <SelectItem 
+                                key={instructor.user_id || instructor.id} 
+                                value={instructor.user_id || instructor.id}
+                              >
+                                {instructor.full_name || instructor.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
