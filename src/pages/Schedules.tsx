@@ -336,7 +336,7 @@ export default function SchedulesPage() {
   );
 
   const editSelectedCourseId = editForm.watch("course_id");
-  const editSelectedCourse = courses.find((c: any) => c.id === editSelectedCourseId);
+
 
   // Build lookup maps
   const courseMap: { [key: string]: string } = {};
