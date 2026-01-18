@@ -3,6 +3,86 @@ import { useAdminNotifications } from "@/hooks/useAdminNotifications";
 import { cn } from "@/lib/utils";
 import { CheckCheck } from "lucide-react";
 
+// Translation helpers for notification content from backend
+const translateTitle = (title: string): string => {
+  const titleMap: { [key: string]: string } = {
+    'New Booking Received': 'Booking Baru Diterima',
+    'Booking Confirmed': 'Booking Dikonfirmasi',
+    'Booking Cancelled': 'Booking Dibatalkan',
+    'Payment Received': 'Pembayaran Diterima',
+    'Payment Pending': 'Pembayaran Menunggu',
+    'Schedule Updated': 'Jadwal Diperbarui',
+    'New Student Registered': 'Siswa Baru Terdaftar',
+  };
+
+  if (titleMap[title]) return titleMap[title];
+
+  // Dynamic Titles
+  const reminderMatch = title.match(/^Payment Reminder: (.+)$/);
+  if (reminderMatch) return `Pengingat Pembayaran: ${reminderMatch[1]}`;
+
+  const dueTodayMatch = title.match(/^Payment Due Today: (.+)$/);
+  if (dueTodayMatch) return `Pembayaran Jatuh Tempo Hari Ini: ${dueTodayMatch[1]}`;
+
+  const urgentMatch = title.match(/^URGENT: Overdue 3 Days \((.+)\)$/);
+  if (urgentMatch) return `PENTING: Terlambat 3 Hari (${urgentMatch[1]})`;
+
+  const terminatedMatch = title.match(/^TERMINATED: (.+)$/);
+  if (terminatedMatch) return `DITERMINASI: ${terminatedMatch[1]}`;
+
+  return title;
+};
+
+const translateMessage = (message: string): string => {
+  // Pattern: "New booking from NAME (EMAIL)"
+  const bookingPattern = /^New booking from (.+) \((.+)\)$/;
+  const bookingMatch = message.match(bookingPattern);
+  if (bookingMatch) {
+    return `Booking baru dari ${bookingMatch[1]} (${bookingMatch[2]})`;
+  }
+  
+  // Pattern: "Payment of AMOUNT received from NAME"
+  const paymentPattern = /^Payment of (.+) received from (.+)$/;
+  const paymentMatch = message.match(paymentPattern);
+  if (paymentMatch) {
+    return `Pembayaran sebesar ${paymentMatch[1]} diterima dari ${paymentMatch[2]}`;
+  }
+
+  // 1. Reminder Pembayaran H-3
+  // "Payment for [Nama Siswa] is due on [Tanggal] (in 3 days)."
+  const reminderPattern = /^Payment for (.+) is due on (.+) \(in 3 days\)\.$/;
+  const reminderMatch = message.match(reminderPattern);
+  if (reminderMatch) {
+    return `Pembayaran untuk ${reminderMatch[1]} jatuh tempo pada ${reminderMatch[2]} (dalam 3 hari).`;
+  }
+
+  // 2. Peringatan Pembayaran Jatuh Tempo H-0
+  // "Status changed to Grace Period. Payment due today [Tanggal]."
+  const dueTodayPattern = /^Status changed to Grace Period\. Payment due today (.+)\.$/;
+  const dueTodayMatch = message.match(dueTodayPattern);
+  if (dueTodayMatch) {
+    return `Status berubah menjadi Masa Tenggang. Pembayaran jatuh tempo hari ini ${dueTodayMatch[1]}.`;
+  }
+
+  // 3. Keterlambatan Pembayaran H+3
+  // "Payment was due on [Tanggal]. Please follow up immediately."
+  const overduePattern = /^Payment was due on (.+)\. Please follow up immediately\.$/;
+  const overdueMatch = message.match(overduePattern);
+  if (overdueMatch) {
+    return `Pembayaran jatuh tempo pada ${overdueMatch[1]}. Harap segera tindak lanjuti.`;
+  }
+
+  // 4. Terminasi Siswa H+7
+  // "Student terminated due to non-payment (7 days overdue)."
+  const terminatedPattern = /^Student terminated due to non-payment \(7 days overdue\)\.$/;
+  /* v8 ignore next 3 */
+  if (message.match(terminatedPattern)) {
+    return `Siswa diterminasi karena tidak membayar (terlambat 7 hari).`;
+  }
+  
+  return message;
+};
+
 export default function NotificationsPage() {
   const { notifications, markAsRead, markAllAsRead } = useAdminNotifications();
 
@@ -59,13 +139,13 @@ export default function NotificationsPage() {
                           {notification.type === 'info' ? 'Info' :
                            notification.type === 'urgent' ? 'Penting' :
                            notification.type === 'warning' ? 'Peringatan' :
-                           notification.type === 'error' ? 'Error' : notification.type}
+                           notification.type === 'error' ? 'Kesalahan' : notification.type}
                         </span>
                         <h4 className={cn(
                           "text-sm font-medium",
                           !notification.is_read ? "text-gray-900" : "text-gray-600"
                         )}>
-                          {notification.title}
+                        {translateTitle(notification.title)}
                         </h4>
                       </div>
                       <span className="text-xs text-gray-400">
@@ -76,11 +156,11 @@ export default function NotificationsPage() {
                       "text-sm",
                       !notification.is_read ? "text-gray-700" : "text-gray-500"
                     )}>
-                      {notification.message}
+                      {translateMessage(notification.message)}
                     </p>
                     {notification.booking_id && (
                        <p className="text-xs text-gray-400 mt-2 font-mono">
-                         ID: {notification.booking_id}
+                         ID Booking: {notification.booking_id}
                        </p>
                     )}
                   </div>

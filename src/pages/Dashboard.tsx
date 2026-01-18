@@ -48,12 +48,22 @@ export default function Dashboard() {
     if (!bookingsData) return [];
     const bookings = Array.isArray(bookingsData) ? bookingsData : (bookingsData?.data || []);
     
+    // Status translation map
+    const statusMap: { [key: string]: string } = {
+      'confirmed': 'Dikonfirmasi',
+      'pending': 'Menunggu',
+      'cancelled': 'Dibatalkan',
+      'completed': 'Selesai',
+      'rejected': 'Ditolak',
+    };
+
     return bookings
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 5)
       .map((booking: any) => {
         const studentName = booking.applicant_full_name || studentMap[booking.user_id] || 'Siswa Tidak Diketahui';
         const courseName = courseMap[booking.course_id] || 'Kursus';
+        const translatedStatus = statusMap[booking.status] || booking.status;
         
         // Calculate time ago
         const date = new Date(booking.created_at);
@@ -68,7 +78,7 @@ export default function Dashboard() {
 
         return {
           id: booking.id,
-          title: `Booking baru ${booking.status}`,
+          title: `Booking baru - ${translatedStatus}`,
           description: `Siswa ${studentName} memesan ${courseName}`,
           time: timeAgo,
           status: booking.status
