@@ -218,6 +218,20 @@ export default function BookingsPage() {
     return lookup;
   }, [coursesData]);
 
+  // Build instrument lookup map from courses
+  const instrumentMap = useMemo(() => {
+    const lookup: { [key: string]: string } = {};
+    const courses = coursesData?.data || coursesData || [];
+    if (Array.isArray(courses)) {
+      courses.forEach((course: any) => {
+        if (course && course.id && course.instrument) {
+          lookup[course.id] = course.instrument;
+        }
+      });
+    }
+    return lookup;
+  }, [coursesData]);
+
   // Build instructor lookup map
   const instructorMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
@@ -597,6 +611,7 @@ export default function BookingsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nama</TableHead>
+              <TableHead>Instrument</TableHead>
               <TableHead>Sekolah</TableHead>
               <TableHead>Kursus</TableHead>
               <TableHead>Pilihan Pertama</TableHead>
@@ -612,6 +627,9 @@ export default function BookingsPage() {
               <TableRow key={booking.id}>
                 <TableCell className="font-medium">
                   {booking.applicant_full_name || studentMap[booking.user_id] || booking.user_id || '-'}
+                </TableCell>
+                <TableCell>
+                  {booking.courses?.instrument || instrumentMap[booking.course_id] || booking.instrument || '-'}
                 </TableCell>
                 <TableCell>
                   {booking.applicant_school || schoolMap[booking.user_id] || '-'}
