@@ -404,11 +404,33 @@ export default function ScheduleDetailsPage() {
 
   // Build lookup map for availability slots by schedule_id
   const availabilityMap: { [key: string]: any } = {};
+  const busyInstructorMap: { [key: string]: string } = {};
+
   availabilitySlots.forEach((slot: any) => {
     if (slot.schedule_id) {
       availabilityMap[slot.schedule_id] = slot;
     }
+    // Populate busyInstructorMap if slot is booked (active enrollment)
+    if ((slot.current_enrollments && slot.current_enrollments > 0) || (slot.confirmed_count && slot.confirmed_count > 0)) {
+        const normalizedDay = slot.day_of_week?.toLowerCase();
+        const normalizedTime = slot.start_time ? slot.start_time.slice(0, 5) : '';
+        const key = `${slot.instructor_id}-${normalizedDay}-${normalizedTime}`;
+        busyInstructorMap[key] = slot.room_name;
+    }
   });
+
+  // Helpers for checking impacted status
+  const getScheduleDay = (item: any) => {
+      if (item.schedule && item.schedule.length > 0) return item.schedule[0].day_of_week;
+      if (item.slots && item.slots.length > 0) return item.slots[0].day_of_week;
+      return item.day_of_week || item.day;
+  };
+
+  const getScheduleStartTime = (item: any) => {
+      if (item.schedule && item.schedule.length > 0) return item.schedule[0].start_time;
+      if (item.slots && item.slots.length > 0) return item.slots[0].start_time;
+      return item.start_time || item.start_time_of_day;
+  };
   
   // Filter schedules based on query params
   const filteredSchedules = allSchedules.filter((s: any) => {
@@ -546,6 +568,23 @@ export default function ScheduleDetailsPage() {
                   const max = hasAvailabilityData ? (availability.max_students ?? schedule.max_students ?? '-') : (schedule.max_students ?? '-');
                   const status = hasAvailabilityData ? availability.status : undefined;
                   
+                  // Check for impacted status
+                  let impactedRoom = null;
+                  if (hasAvailabilityData && status !== 'available') {
+                      const dayRaw = getScheduleDay(schedule);
+                      const timeRaw = getScheduleStartTime(schedule);
+                      
+                      const normalizedDay = dayRaw ? String(dayRaw).toLowerCase() : '';
+                      const normalizedTime = timeRaw ? String(timeRaw).slice(0, 5) : '';
+                      
+                      const slotKey = `${schedule.instructor_id}-${normalizedDay}-${normalizedTime}`;
+                      const busyRoom = busyInstructorMap[slotKey];
+                      
+                      if (busyRoom && busyRoom !== roomName) {
+                          impactedRoom = busyRoom;
+                      }
+                  }
+
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="font-medium">
@@ -562,6 +601,10 @@ export default function ScheduleDetailsPage() {
                          {hasAvailabilityData ? (
                              status === 'available' ? (
                                  <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">Tersedia</Badge>
+                             ) : impactedRoom ? (
+                                 <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                                     Instruktur Terpakai di {impactedRoom}
+                                 </Badge>
                              ) : (
                                  <Badge variant="destructive">Penuh</Badge>
                              )
