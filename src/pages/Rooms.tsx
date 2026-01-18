@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useRooms, queryKeys } from '@/hooks/useQueries';
+import { MultiSelect, Option } from '@/components/ui/multi-select';
 // import { SetupRoomAvailabilityDialog } from "@/components/SetupRoomAvailabilityDialog";
 import {
   Table,
@@ -45,7 +46,17 @@ const roomSchema = z.object({
   name: z.string().min(2),
   capacity: z.coerce.number().min(1),
   description: z.string().optional(),
+  instruments: z.array(z.string()).optional(),
 });
+
+const INSTRUMENT_OPTIONS: Option[] = [
+  { label: 'Vokal', value: 'Vokal' },
+  { label: 'Piano', value: 'Piano' },
+  { label: 'Drum', value: 'Drum' },
+  { label: 'Bass', value: 'Bass' },
+  { label: 'Gitar', value: 'Guitar' },
+  { label: 'Keyboard', value: 'Keyboard' }
+];
 
 export default function RoomsPage() {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,6 +76,7 @@ export default function RoomsPage() {
       name: "",
       capacity: 1,
       description: "",
+      instruments: [],
     },
   });
 
@@ -74,6 +86,7 @@ export default function RoomsPage() {
       name: "",
       capacity: 1,
       description: "",
+      instruments: [],
     },
   });
 
@@ -84,6 +97,7 @@ export default function RoomsPage() {
         name: selectedRoom.name || "",
         capacity: selectedRoom.capacity || 1,
         description: selectedRoom.description || "",
+        instruments: selectedRoom.instruments || [],
       });
     }
   }, [selectedRoom, editForm]);
@@ -232,6 +246,25 @@ export default function RoomsPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="instruments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Instrumen</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={INSTRUMENT_OPTIONS}
+                          selected={field.value || []}
+                          onChange={field.onChange}
+                          placeholder="Pilih instrumen..."
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button type="submit" disabled={createMutation.isPending}>
                     {createMutation.isPending ? "Menyimpan..." : "Simpan"}
@@ -249,6 +282,7 @@ export default function RoomsPage() {
             <TableRow>
               <TableHead>Nama</TableHead>
               <TableHead>Kapasitas</TableHead>
+              <TableHead>Instrumen</TableHead>
               <TableHead>Deskripsi</TableHead>
               <TableHead>Aksi</TableHead>
             </TableRow>
@@ -258,6 +292,11 @@ export default function RoomsPage() {
               <TableRow key={room.id}>
                 <TableCell className="font-medium">{room.name}</TableCell>
                 <TableCell>{room.capacity}</TableCell>
+                <TableCell>
+                  {Array.isArray(room.instruments) && room.instruments.length > 0 
+                    ? room.instruments.join(', ') 
+                    : '-'}
+                </TableCell>
                 <TableCell>{room.description || '-'}</TableCell>
                 <TableCell>
                   <div className="flex space-x-1">
@@ -341,6 +380,25 @@ export default function RoomsPage() {
                     <FormLabel>Deskripsi</FormLabel>
                     <FormControl>
                       <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="instruments"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Instrumen</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={INSTRUMENT_OPTIONS}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder="Pilih instrumen..."
+                        className="w-full"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
