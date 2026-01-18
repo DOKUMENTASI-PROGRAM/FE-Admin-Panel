@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Edit, Trash, ArrowLeft, Plus, BookOpen, User, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -489,6 +490,7 @@ export default function ScheduleDetailsPage() {
                   <TableHead>Hari & Jam</TableHead>
                   <TableHead>Ruangan</TableHead>
                   <TableHead>Murid / Kapasitas</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -538,9 +540,11 @@ export default function ScheduleDetailsPage() {
                     timeDisplay = `${day}, ${start} - ${end}`;
                   }
 
-                  // Format Students / Capacity
-                  const current = availability.current_enrollments ?? schedule.current_enrollments ?? 0;
-                  const max = availability.max_students || schedule.max_students || schedule.rooms?.capacity || '-';
+                  // Strict availability data usage
+                  const hasAvailabilityData = !!availability;
+                  const current = hasAvailabilityData ? (availability.current_enrollments ?? 0) : 0;
+                  const max = hasAvailabilityData ? (availability.max_students ?? schedule.max_students ?? '-') : (schedule.max_students ?? '-');
+                  const status = hasAvailabilityData ? availability.status : undefined;
                   
                   return (
                     <TableRow key={schedule.id}>
@@ -553,6 +557,17 @@ export default function ScheduleDetailsPage() {
                           {current}
                         </span>
                         <span className="text-muted-foreground"> / {max} Siswa</span>
+                      </TableCell>
+                      <TableCell>
+                         {hasAvailabilityData ? (
+                             status === 'available' ? (
+                                 <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">Tersedia</Badge>
+                             ) : (
+                                 <Badge variant="destructive">Penuh</Badge>
+                             )
+                         ) : (
+                             <Badge variant="outline" className="text-muted-foreground">Memuat...</Badge>
+                         )}
                       </TableCell>
                       <TableCell className="text-right space-x-1">
                         <Button 
