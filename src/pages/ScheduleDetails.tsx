@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash, ArrowLeft, Plus, BookOpen, User, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
+import { Edit, Trash, ArrowLeft, Plus, Music, User, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -459,12 +459,29 @@ export default function ScheduleDetailsPage() {
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Kursus</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Instrument</CardTitle>
+            <Music className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold truncate" title={courseId ? (courseMap[courseId] || courseId) : 'Semua Kursus'}>
-              {courseId ? (courseMap[courseId] || courseId) : 'Semua Kursus'}
+            <div className="text-lg font-bold truncate">
+              {(() => {
+                  // 1. Try to get from specific filtered Course
+                  if (courseId && courseId !== 'undefined' && courseId !== 'null') {
+                      const course = courses.find((c: any) => String(c.id) === String(courseId));
+                      return course?.instrument || 'Semua Instrument';
+                  }
+
+                  // 2. Try to infer from the visible schedules (context)
+                  if (filteredSchedules.length > 0) {
+                      const firstSchedule = filteredSchedules[0];
+                      const course = courses.find((c: any) => c.id === firstSchedule.course_id);
+                      if (course?.instrument) {
+                          return course.instrument;
+                      }
+                  }
+
+                  return 'Semua Instrument';
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -509,11 +526,11 @@ export default function ScheduleDetailsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Hari & Jam</TableHead>
-                  <TableHead>Ruangan</TableHead>
-                  <TableHead>Murid / Kapasitas</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
+                  <TableHead className="w-[200px]">Hari & Jam</TableHead>
+                  <TableHead className="w-[150px]">Ruangan</TableHead>
+                  <TableHead className="w-[150px]">Murid / Kapasitas</TableHead>
+                  <TableHead className="w-[300px]">Status</TableHead>
+                  <TableHead className="text-right w-[200px]">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -612,23 +629,25 @@ export default function ScheduleDetailsPage() {
                              <Badge variant="outline" className="text-muted-foreground">Memuat...</Badge>
                          )}
                       </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleOpenEdit(schedule)}
-                          className="h-8 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                        >
-                          <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleOpenDelete(schedule)}
-                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash className="h-3.5 w-3.5 mr-1" /> Hapus
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleOpenEdit(schedule)}
+                              className="h-8 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                            >
+                              <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleOpenDelete(schedule)}
+                              className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash className="h-3.5 w-3.5 mr-1" /> Hapus
+                            </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
