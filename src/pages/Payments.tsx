@@ -507,7 +507,7 @@ export default function PaymentsPage() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2 flex flex-col">
                 <Label htmlFor="student_id">Nama Siswa</Label>
-                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                <Popover open={openCombobox} onOpenChange={setOpenCombobox} modal={true}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -531,6 +531,10 @@ export default function PaymentsPage() {
                             <CommandItem
                               key={student.id}
                               value={`${student.name} ${student.id}`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               onSelect={() => {
                                 setFormData({...formData, booking_id: student.id});
                                 setOpenCombobox(false);
@@ -667,7 +671,7 @@ export default function PaymentsPage() {
             <div className="grid gap-4 py-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="edit_student_id">Nama Siswa</Label>
-                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                <Popover open={openCombobox} onOpenChange={setOpenCombobox} modal={true}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -691,6 +695,10 @@ export default function PaymentsPage() {
                             <CommandItem
                               key={student.id}
                               value={`${student.name} ${student.id}`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               onSelect={() => {
                                 setFormData({...formData, booking_id: student.id});
                                 setOpenCombobox(false);

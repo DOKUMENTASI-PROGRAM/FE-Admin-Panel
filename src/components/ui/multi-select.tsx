@@ -45,7 +45,7 @@ export function MultiSelect({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -109,6 +109,10 @@ export function MultiSelect({
                 <CommandItem
                   key={option.value}
                   value={option.label} // Use label for search
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   onSelect={() => {
                     if (selected.includes(option.value)) {
                       onChange(selected.filter((item) => item !== option.value));
