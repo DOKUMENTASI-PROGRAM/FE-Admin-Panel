@@ -335,6 +335,18 @@ export default function SchedulesPage() {
     !editInstrument || (c.instrument && c.instrument === editInstrument)
   );
 
+  // Filter rooms by instrument for Create form
+  const filteredCreateRooms = rooms.filter((room: any) => {
+    if (!createInstrument) return true; // Show all if no instrument selected
+    return Array.isArray(room.instruments) && room.instruments.includes(createInstrument);
+  });
+
+  // Filter rooms by instrument for Edit form
+  const filteredEditRooms = rooms.filter((room: any) => {
+    if (!editInstrument) return true; // Show all if no instrument selected
+    return Array.isArray(room.instruments) && room.instruments.includes(editInstrument);
+  });
+
   const editSelectedCourseId = editForm.watch("course_id");
 
 
@@ -472,6 +484,7 @@ export default function SchedulesPage() {
                         setCreateInstrument(value);
                         createForm.setValue("course_id", "");
                         createForm.setValue("instructor_id", "");
+                        createForm.setValue("room_id", "");
                       }} 
                       value={createInstrument}
                     >
@@ -570,11 +583,16 @@ export default function SchedulesPage() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {rooms.map((room: any) => (
+                            {filteredCreateRooms.map((room: any) => (
                               <SelectItem key={room.id} value={room.id}>
                                 {room.name}
                               </SelectItem>
                             ))}
+                            {filteredCreateRooms.length === 0 && (
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                  Tidak ada ruangan yang cocok ditemukan
+                              </div>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -820,6 +838,7 @@ export default function SchedulesPage() {
                       setEditInstrument(value);
                       editForm.setValue("course_id", "");
                       editForm.setValue("instructor_id", "");
+                      editForm.setValue("room_id", "");
                     }} 
                     value={editInstrument}
                   >
@@ -947,11 +966,16 @@ export default function SchedulesPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {rooms.map((room: any) => (
+                          {filteredEditRooms.map((room: any) => (
                             <SelectItem key={room.id} value={room.id}>
                               {room.name}
                             </SelectItem>
                           ))}
+                          {filteredEditRooms.length === 0 && (
+                            <div className="p-2 text-sm text-muted-foreground text-center">
+                                Tidak ada ruangan yang cocok ditemukan
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
