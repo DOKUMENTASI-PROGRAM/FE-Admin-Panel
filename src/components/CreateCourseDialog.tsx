@@ -35,13 +35,13 @@ import { useToast } from "@/components/ui/use-toast";
 import { Plus } from "lucide-react";
 
 const courseSchema = z.object({
-  title: z.string().min(2, "Title is required"),
+  title: z.string().min(2, "Judul wajib diisi"),
   description: z.string().optional(),
-  level: z.string().min(1, "Level is required"),
-  price_per_session: z.coerce.number().min(0),
-  duration_minutes: z.coerce.number().min(1),
-  max_students: z.coerce.number().min(1),
-  instrument: z.string().min(1, "Instrument is required"),
+  level: z.string().min(1, "Level wajib diisi"),
+  price_per_session: z.coerce.number().min(0, "Harga tidak boleh negatif"),
+  duration_minutes: z.coerce.number().min(1, "Durasi minimal 1 menit"),
+  max_students: z.coerce.number().min(1, "Minimal 1 siswa"),
+  instrument: z.string().min(1, "Instrumen wajib dipilih"),
   type_course: z.enum(["reguler", "hobby", "karyawan", "ministry", "privat"]),
 });
 
@@ -73,8 +73,8 @@ export function CreateCourseDialog() {
     },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Course created successfully",
+        title: "Berhasil",
+        description: "Kursus berhasil dibuat",
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.courses() });
       setOpen(false);
@@ -84,7 +84,7 @@ export function CreateCourseDialog() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to create course",
+        description: error.response?.data?.message || "Gagal membuat kursus",
       });
     },
   });
@@ -97,14 +97,14 @@ export function CreateCourseDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" /> Create Course
+          <Plus className="mr-2 h-4 w-4" /> Buat Kursus
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Course</DialogTitle>
+          <DialogTitle>Buat Kursus Baru</DialogTitle>
           <DialogDescription>
-            Add a new course to the catalog.
+            Tambahkan kursus baru ke katalog.
           </DialogDescription>
         </DialogHeader>
 
@@ -115,9 +115,9 @@ export function CreateCourseDialog() {
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>Judul</FormLabel>
                   <FormControl>
-                    <Input placeholder="Piano Basics" {...field} />
+                    <Input placeholder="Dasar Piano" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -129,9 +129,9 @@ export function CreateCourseDialog() {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Deskripsi</FormLabel>
                   <FormControl>
-                    <Input placeholder="Course description..." {...field} />
+                    <Input placeholder="Deskripsi kursus..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -148,13 +148,13 @@ export function CreateCourseDialog() {
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select level" />
+                          <SelectValue placeholder="Pilih level" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="beginner">Beginner</SelectItem>
-                        <SelectItem value="intermediate">Intermediate</SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="beginner">Pemula (Beginner)</SelectItem>
+                        <SelectItem value="intermediate">Menengah (Intermediate)</SelectItem>
+                        <SelectItem value="advanced">Lanjutan (Advanced)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -167,7 +167,7 @@ export function CreateCourseDialog() {
                 name="max_students"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Max Students</FormLabel>
+                    <FormLabel>Maks Siswa</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -183,7 +183,7 @@ export function CreateCourseDialog() {
                 name="price_per_session"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price per Session</FormLabel>
+                    <FormLabel>Harga per Sesi</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -197,7 +197,7 @@ export function CreateCourseDialog() {
                 name="duration_minutes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Duration (Minutes)</FormLabel>
+                    <FormLabel>Durasi (Menit)</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -212,16 +212,16 @@ export function CreateCourseDialog() {
               name="instrument"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Instrument</FormLabel>
+                  <FormLabel>Instrumen</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select instrument" />
+                        <SelectValue placeholder="Pilih instrumen" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="Piano">Piano</SelectItem>
-                      <SelectItem value="Guitar">Guitar</SelectItem>
+                      <SelectItem value="Guitar">Gitar</SelectItem>
                       <SelectItem value="Vokal">Vokal</SelectItem>
                       <SelectItem value="Drum">Drum</SelectItem>
                       <SelectItem value="Bass">Bass</SelectItem>
@@ -238,11 +238,11 @@ export function CreateCourseDialog() {
               name="type_course"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Course Type</FormLabel>
+                  <FormLabel>Tipe Kursus</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select course type" />
+                        <SelectValue placeholder="Pilih tipe kursus" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -260,10 +260,10 @@ export function CreateCourseDialog() {
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                Batal
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Creating..." : "Create Course"}
+                {mutation.isPending ? "Membuat..." : "Buat Kursus"}
               </Button>
             </div>
           </form>

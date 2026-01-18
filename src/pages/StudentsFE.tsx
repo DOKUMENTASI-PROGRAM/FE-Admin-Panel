@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
 import { useStudents, queryKeys } from '@/hooks/useQueries';
@@ -13,7 +13,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
-import { Plus, Loader2, X } from 'lucide-react';
+import { Plus, Loader2, X, Upload } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -230,11 +230,22 @@ const StudentForm = ({
                   <div className="flex-1 space-y-2">
                     <FormControl>
                       <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => document.getElementById('fe-file-input')?.click()}
+                          disabled={isUploading}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          {field.value ? "Ganti Foto" : "Pilih Foto"}
+                        </Button>
                         <Input 
+                          id="fe-file-input"
                           type="file" 
                           accept="image/*"
                           onChange={onPhotoSelect}
-                          className="flex-1"
+                          className="hidden"
                           disabled={isUploading}
                         />
                       </div>

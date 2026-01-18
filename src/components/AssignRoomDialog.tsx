@@ -37,12 +37,12 @@ import { useToast } from "@/components/ui/use-toast";
 // Since I don't have a multi-select component ready, I'll use a group of checkboxes.
 
 const assignRoomSchema = z.object({
-  course_id: z.string().min(1, "Course is required"),
-  room_id: z.string().min(1, "Room is required"),
+  course_id: z.string().min(1, "Kursus wajib dipilih"),
+  room_id: z.string().min(1, "Ruangan wajib dipilih"),
   schedule: z.object({
-    days: z.array(z.string()).min(1, "Select at least one day"),
-    time: z.string().min(1, "Time is required"),
-    duration: z.coerce.number().min(1, "Duration is required"),
+    days: z.array(z.string()).min(1, "Pilih minimal satu hari"),
+    time: z.string().min(1, "Waktu wajib diisi"),
+    duration: z.coerce.number().min(1, "Durasi wajib diisi"),
   }),
 });
 
@@ -80,8 +80,8 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
     },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Room assigned successfully",
+        title: "Berhasil",
+        description: "Ruangan berhasil ditetapkan",
       });
       queryClient.invalidateQueries({ queryKey: ["schedules"] }); // Assuming this affects schedules/slots
       setOpen(false);
@@ -91,7 +91,7 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to assign room",
+        description: error.response?.data?.message || "Gagal menetapkan ruangan",
       });
     },
   });
@@ -101,17 +101,26 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
   };
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  const dayNames = {
+    monday: "Senin",
+    tuesday: "Selasa",
+    wednesday: "Rabu",
+    thursday: "Kamis",
+    friday: "Jumat",
+    saturday: "Sabtu",
+    sunday: "Minggu"
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || <Button variant="secondary" size="sm">Assign Room</Button>}
+        {trigger || <Button variant="secondary" size="sm">Tetapkan Ruangan</Button>}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Room {courseTitle ? `to ${courseTitle}` : ""}</DialogTitle>
+          <DialogTitle>Tetapkan Ruangan {courseTitle ? `untuk ${courseTitle}` : ""}</DialogTitle>
           <DialogDescription>
-            Assign a room and time slots for this course.
+            Tetapkan ruangan dan waktu untuk kursus ini.
           </DialogDescription>
         </DialogHeader>
 
@@ -123,9 +132,9 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
                 name="course_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course ID</FormLabel>
+                    <FormLabel>ID Kursus</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Course UUID" />
+                      <Input {...field} placeholder="UUID Kursus" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -138,11 +147,11 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
               name="room_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Room</FormLabel>
+                  <FormLabel>Ruangan</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select room" />
+                        <SelectValue placeholder="Pilih ruangan" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -164,7 +173,7 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
               render={() => (
                 <FormItem>
                   <div className="mb-4">
-                    <FormLabel className="text-base">Days</FormLabel>
+                    <FormLabel className="text-base">Hari</FormLabel>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {days.map((day) => (
@@ -195,7 +204,7 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
                                 />
                               </FormControl>
                               <FormLabel className="font-normal capitalize">
-                                {day}
+                                {dayNames[day as keyof typeof dayNames]}
                               </FormLabel>
                             </FormItem>
                           )
@@ -214,7 +223,7 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
                 name="schedule.time"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Time</FormLabel>
+                    <FormLabel>Waktu</FormLabel>
                     <FormControl>
                       <Input type="time" {...field} />
                     </FormControl>
@@ -228,7 +237,7 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
                 name="schedule.duration"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Duration (min)</FormLabel>
+                    <FormLabel>Durasi (mnt)</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -240,10 +249,10 @@ export function AssignRoomDialog({ courseId, courseTitle, trigger }: AssignRoomD
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                Batal
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Assigning..." : "Assign Room"}
+                {mutation.isPending ? "Menetapkan..." : "Tetapkan Ruangan"}
               </Button>
             </div>
           </form>

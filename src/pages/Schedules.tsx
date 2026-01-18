@@ -795,7 +795,7 @@ export default function SchedulesPage() {
                       size="sm"
                       onClick={() => handleOpenView(group)}
                     >
-                      Manage Jadwal
+                      Kelola Jadwal
                     </Button>
                   </TableCell>
                 </TableRow>

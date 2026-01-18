@@ -35,12 +35,12 @@ import { Plus, Trash } from "lucide-react";
 const availabilitySchema = z.object({
   schedule: z.array(
     z.object({
-      day_of_week: z.string().min(1, "Day is required"),
-      start_time: z.string().min(1, "Start time is required"),
-      end_time: z.string().min(1, "End time is required"),
+      day_of_week: z.string().min(1, "Hari wajib dipilih"),
+      start_time: z.string().min(1, "Waktu mulai wajib diisi"),
+      end_time: z.string().min(1, "Waktu selesai wajib diisi"),
       is_available: z.boolean().default(true),
     })
-  ).min(1, "At least one schedule block is required"),
+  ).min(1, "Minimal satu blok jadwal diperlukan"),
 });
 
 type AvailabilityFormValues = z.infer<typeof availabilitySchema>;
@@ -77,8 +77,8 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
     },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Room availability updated successfully",
+        title: "Berhasil",
+        description: "Ketersediaan ruangan berhasil diperbarui",
       });
       queryClient.invalidateQueries({ queryKey: ["rooms"] });
       setOpen(false);
@@ -88,7 +88,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to update availability",
+        description: error.response?.data?.message || "Gagal memperbarui ketersediaan",
       });
     },
   });
@@ -98,17 +98,26 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
   };
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  const dayNames = {
+    monday: "Senin",
+    tuesday: "Selasa",
+    wednesday: "Rabu",
+    thursday: "Kamis",
+    friday: "Jumat",
+    saturday: "Sabtu",
+    sunday: "Minggu"
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || <Button variant="outline" size="sm">Availability</Button>}
+        {trigger || <Button variant="outline" size="sm">Ketersediaan</Button>}
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Setup Availability for {roomName}</DialogTitle>
+          <DialogTitle>Atur Ketersediaan untuk {roomName}</DialogTitle>
           <DialogDescription>
-            Define when this room is available for booking.
+            Tentukan kapan ruangan ini tersedia untuk dipesan.
           </DialogDescription>
         </DialogHeader>
 
@@ -116,7 +125,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-medium">Availability Blocks</h4>
+                <h4 className="text-sm font-medium">Blok Ketersediaan</h4>
                 <Button
                   type="button"
                   variant="outline"
@@ -124,7 +133,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
                   onClick={() => append({ day_of_week: "monday", start_time: "09:00", end_time: "17:00", is_available: true })}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Block
+                  Tambah Blok
                 </Button>
               </div>
 
@@ -136,7 +145,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
                       name={`schedule.${index}.day_of_week`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Day</FormLabel>
+                          <FormLabel className="text-xs">Hari</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -146,7 +155,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
                             <SelectContent>
                               {days.map((day) => (
                                 <SelectItem key={day} value={day}>
-                                  {day.charAt(0).toUpperCase() + day.slice(1)}
+                                  {dayNames[day as keyof typeof dayNames]}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -161,7 +170,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
                       name={`schedule.${index}.start_time`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Start</FormLabel>
+                          <FormLabel className="text-xs">Mulai</FormLabel>
                           <FormControl>
                             <Input type="time" {...field} />
                           </FormControl>
@@ -175,7 +184,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
                       name={`schedule.${index}.end_time`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">End</FormLabel>
+                          <FormLabel className="text-xs">Selesai</FormLabel>
                           <FormControl>
                             <Input type="time" {...field} />
                           </FormControl>
@@ -196,7 +205,7 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
                             />
                           </FormControl>
                           <FormLabel className="text-xs font-normal">
-                            Active
+                            Aktif
                           </FormLabel>
                         </FormItem>
                       )}
@@ -219,10 +228,10 @@ export function SetupRoomAvailabilityDialog({ roomId, roomName, trigger }: Setup
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                Batal
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Saving..." : "Save Availability"}
+                {mutation.isPending ? "Menyimpan..." : "Simpan Ketersediaan"}
               </Button>
             </div>
           </form>

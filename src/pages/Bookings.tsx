@@ -109,6 +109,25 @@ export default function BookingsPage() {
     return lookup;
   }, [usersData]);
 
+  // Constants for translations
+  const dayMap: { [key: string]: string } = {
+    monday: 'Senin',
+    tuesday: 'Selasa',
+    wednesday: 'Rabu',
+    thursday: 'Kamis',
+    friday: 'Jumat',
+    saturday: 'Sabtu',
+    sunday: 'Minggu',
+    TBD: 'TBD'
+  };
+
+  const statusMap: { [key: string]: string } = {
+    pending: 'Menunggu',
+    confirmed: 'Terkonfirmasi',
+    cancelled: 'Dibatalkan',
+    rejected: 'Ditolak'
+  };
+
   // Build lookup map for slots
   const slotsMap = useMemo(() => {
     const lookup: { [key: string]: string } = {};
@@ -127,7 +146,7 @@ export default function BookingsPage() {
     const extractTimeInfo = (dateString: string) => {
       try {
         const date = new Date(dateString);
-        return date.toLocaleTimeString('en-US', { 
+        return date.toLocaleTimeString('id-ID', { 
           hour: '2-digit', 
           minute: '2-digit', 
           hour12: false 
@@ -140,7 +159,7 @@ export default function BookingsPage() {
     const extractDayOfWeek = (dateString: string) => {
       try {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { weekday: 'long' });
+        return date.toLocaleDateString('id-ID', { weekday: 'long' });
       } catch {
         return 'TBD';
       }
@@ -167,7 +186,9 @@ export default function BookingsPage() {
                 // Use start_time_of_day if start_time is null
                 const startTime = normalizeTime(slot.start_time_of_day || slot.start_time || slot.start);
                 const endTime = normalizeTime(slot.end_time_of_day || slot.end_time || slot.end);
-                slotInfo = `${slot.day_of_week || slot.day || 'TBD'} ${startTime} - ${endTime}`;
+                const dayRaw = (slot.day_of_week || slot.day || 'TBD').toLowerCase();
+                const dayIndo = dayMap[dayRaw] || dayRaw;
+                slotInfo = `${dayIndo} ${startTime} - ${endTime}`;
               }
               lookup[slot.id] = slotInfo;
             }
@@ -186,7 +207,9 @@ export default function BookingsPage() {
             // New subscription format with start_time_of_day
             const startTime = normalizeTime(schedule.start_time_of_day);
             const endTime = normalizeTime(schedule.end_time_of_day);
-            slotInfo = `${schedule.day_of_week || 'TBD'} ${startTime} - ${endTime}`;
+            const dayRaw = (schedule.day_of_week || 'TBD').toLowerCase();
+            const dayIndo = dayMap[dayRaw] || dayRaw;
+            slotInfo = `${dayIndo} ${startTime} - ${endTime}`;
           } else if (schedule.start_time.includes('T')) {
             // Old ISO datetime format
             const dayOfWeek = extractDayOfWeek(schedule.start_time);
@@ -195,7 +218,9 @@ export default function BookingsPage() {
             slotInfo = `${dayOfWeek} ${startTime} - ${endTime}`;
           } else {
             // Old simple time format
-            slotInfo = `${schedule.day_of_week || 'TBD'} ${schedule.start_time} - ${schedule.end_time}`;
+            const dayRaw = (schedule.day_of_week || 'TBD').toLowerCase();
+            const dayIndo = dayMap[dayRaw] || dayRaw;
+            slotInfo = `${dayIndo} ${schedule.start_time} - ${schedule.end_time}`;
           }
           lookup[schedule.id] = slotInfo;
         }
@@ -282,10 +307,13 @@ export default function BookingsPage() {
     // Map to display format
     return matchingSlots.map((slot: any) => {
       const courseTitle = courseMap[slot.course_id] || '';
+      const dayRaw = (slot.day_of_week || '').toLowerCase();
+      const dayIndo = dayMap[dayRaw] || capitalize(dayRaw);
+      
       return {
         id: slot.schedule_id, // Use schedule_id as the unique identifier for assignment
         schedule_id: slot.schedule_id,
-        time: `${capitalize(slot.day_of_week)} ${slot.start_time.substring(0, 5)} - ${slot.end_time.substring(0, 5)}${courseTitle ? ` (${courseTitle})` : ''}`,
+        time: `${dayIndo} ${slot.start_time.substring(0, 5)} - ${slot.end_time.substring(0, 5)}${courseTitle ? ` (${courseTitle})` : ''}`,
         instructor_name: slot.instructor_name, 
         max_students: slot.max_students,
         current_enrollments: slot.current_enrollments,
@@ -301,13 +329,13 @@ export default function BookingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
-      toast({ title: "Berhasil", description: "Booking berhasil dikonfirmasi" });
+      toast({ title: "Berhasil", description: "Pendaftaran berhasil dikonfirmasi" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Gagal mengonfirmasi booking" 
+        description: error.response?.data?.message || "Gagal mengonfirmasi pendaftaran" 
       });
     },
   });
@@ -319,13 +347,13 @@ export default function BookingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings() });
-      toast({ title: "Berhasil", description: "Booking berhasil dibatalkan" });
+      toast({ title: "Berhasil", description: "Pendaftaran berhasil dibatalkan" });
     },
     onError: (error: any) => {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: error.response?.data?.message || "Gagal membatalkan booking" 
+        description: error.response?.data?.message || "Gagal membatalkan pendaftaran" 
       });
     },
   });
@@ -452,12 +480,12 @@ export default function BookingsPage() {
     // Helper to format preference object for display
     const formatPreference = (pref: any): string => {
       if (!pref) return 'Unknown';
-      const day = pref.day || pref.day_of_week || 'TBD';
+      const day = (pref.day || pref.day_of_week || 'TBD').toLowerCase();
       const start = pref.start_time || pref.start || '';
       const end = pref.end_time || pref.end || '';
       // Capitalize first letter of day
-      const dayCapitalized = day.charAt(0).toUpperCase() + day.slice(1);
-      return `${dayCapitalized} ${start} - ${end}`;
+      const dayIndo = dayMap[day] || day;
+      return `${dayIndo} ${start} - ${end}`;
     };
     
     if (firstSlotId) {
@@ -510,7 +538,7 @@ export default function BookingsPage() {
         toast({ 
           variant: "default", 
           title: "Preferensi Tidak Ditemukan", 
-          description: "Booking ini tidak memiliki preferensi jadwal. Silakan gunakan 'Tetapkan Jadwal' untuk memilih slot secara manual." 
+          description: "Pendaftaran ini tidak memiliki preferensi jadwal. Silakan gunakan 'Tetapkan Jadwal' untuk memilih slot secara manual." 
         });
         setSelectedBooking(booking);
         setIsAssignOpen(true);
@@ -533,7 +561,7 @@ export default function BookingsPage() {
   };
 
   if (isLoading) return <TableSkeleton columnCount={8} rowCount={10} />;
-  if (error) return <div>Error memuat booking</div>;
+  if (error) return <div>Error memuat pendaftaran</div>;
 
   const bookings = data?.data || [];
   
@@ -549,7 +577,9 @@ export default function BookingsPage() {
     // Check if first_preference is an object with day/time info
     if (booking.first_preference && typeof booking.first_preference === 'object') {
       const pref = booking.first_preference;
-      return `${pref.day || 'TBD'} ${pref.start_time || ''} - ${pref.end_time || ''}`;
+      const dayRaw = (pref.day || 'TBD').toLowerCase();
+      const dayIndo = dayMap[dayRaw] || dayRaw;
+      return `${dayIndo} ${pref.start_time || ''} - ${pref.end_time || ''}`;
     }
     
     // Try different possible field names for first choice slot
@@ -573,7 +603,9 @@ export default function BookingsPage() {
     // Check if second_preference is an object with day/time info
     if (booking.second_preference && typeof booking.second_preference === 'object') {
       const pref = booking.second_preference;
-      return `${pref.day || 'TBD'} ${pref.start_time || ''} - ${pref.end_time || ''}`;
+      const dayRaw = (pref.day || 'TBD').toLowerCase();
+      const dayIndo = dayMap[dayRaw] || dayRaw;
+      return `${dayIndo} ${pref.start_time || ''} - ${pref.end_time || ''}`;
     }
     
     // Try different possible field names for second choice slot
@@ -603,7 +635,7 @@ export default function BookingsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Bookings</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Pendaftaran</h2>
       </div>
       
       <div className="border rounded-md">
@@ -653,7 +685,7 @@ export default function BookingsPage() {
                       booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                       booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                       'bg-gray-100 text-gray-800'}`}>
-                    {booking.status}
+                    {statusMap[booking.status] || booking.status}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -723,9 +755,9 @@ export default function BookingsPage() {
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Konfirmasi Jadwal Booking</DialogTitle>
+            <DialogTitle>Konfirmasi Jadwal Pendaftaran</DialogTitle>
             <DialogDescription>
-              Silakan konfirmasi jadwal yang akan ditetapkan untuk booking ini.
+              Silakan konfirmasi jadwal yang akan ditetapkan untuk pendaftaran ini.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -754,7 +786,7 @@ export default function BookingsPage() {
           <DialogHeader>
             <DialogTitle>Tetapkan Slot</DialogTitle>
             <DialogDescription>
-              Tetapkan slot waktu untuk booking {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || selectedBooking?.user_id}.
+              Tetapkan slot waktu untuk pendaftaran {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || selectedBooking?.user_id}.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -824,11 +856,11 @@ export default function BookingsPage() {
 
       {/* View Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Booking Detail</DialogTitle>
+            <DialogTitle>Detail Pendaftaran</DialogTitle>
             <DialogDescription>
-              Detail informasi booking untuk {detailBooking?.applicant_full_name || studentMap[detailBooking?.user_id] || detailBooking?.user_id}
+              Detail informasi pendaftaran untuk {detailBooking?.applicant_full_name || studentMap[detailBooking?.user_id] || detailBooking?.user_id}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -886,7 +918,7 @@ export default function BookingsPage() {
                 </p>
               </div>
               <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">Tanggal Booking</Label>
+                <Label className="text-sm text-muted-foreground">Tanggal Pendaftaran</Label>
                 <p className="font-medium">{detailBooking?.created_at ? new Date(detailBooking.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</p>
               </div>
               <div className="space-y-1">
@@ -958,9 +990,9 @@ export default function BookingsPage() {
       <AlertDialog open={isDeclineOpen} onOpenChange={setIsDeclineOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Tolak Booking?</AlertDialogTitle>
+            <AlertDialogTitle>Tolak Pendaftaran?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini tidak dapat dibatalkan. Ini akan menolak booking secara permanen untuk {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || 'pengguna ini'}.
+              Tindakan ini tidak dapat dibatalkan. Ini akan menolak pendaftaran secara permanen untuk {selectedBooking?.applicant_full_name || studentMap[selectedBooking?.user_id] || 'pengguna ini'}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

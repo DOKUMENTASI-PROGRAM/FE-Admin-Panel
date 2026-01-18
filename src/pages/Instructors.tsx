@@ -60,10 +60,9 @@ const TEACHING_CATEGORY_OPTIONS: Option[] = [
   { label: 'Privat', value: 'Privat' },
 ];
 
-// Schema matching documentation: POST /api/admin/instructor
 const instructorSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  full_name: z.string().min(2, "Full name is required"),
+  email: z.string().email("Format email tidak valid"),
+  full_name: z.string().min(2, "Nama lengkap wajib diisi"),
   wa_number: z.string().optional(),
   bio: z.string().optional(),
   specialization: z.array(z.string()).optional(),
@@ -348,7 +347,7 @@ export default function InstructorsPage() {
               <Plus className="mr-2 h-4 w-4" /> Buat Instruktur
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Buat Instruktur</DialogTitle>
               <DialogDescription>
@@ -483,13 +482,23 @@ export default function InstructorsPage() {
                               </div>
                             )}
                             <div className="flex-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full mb-2"
+                                onClick={() => createFileInputRef.current?.click()}
+                                disabled={isUploading}
+                              >
+                                <Upload className="mr-2 h-4 w-4" /> 
+                                {createForm.getValues('photo_url') ? "Ganti Foto" : "Pilih Foto"}
+                              </Button>
                               <Input
                                 ref={createFileInputRef}
                                 type="file"
                                 accept="image/jpeg,image/png,image/webp,image/gif"
                                 onChange={(e) => handlePhotoSelect(e, false)}
                                 disabled={isUploading}
-                                className="cursor-pointer"
+                                className="hidden"
                               />
                               <p className="text-xs text-muted-foreground mt-2">
                                 Ukuran maks 5MB. Format: JPG, PNG, WebP, GIF.
@@ -595,7 +604,7 @@ export default function InstructorsPage() {
       </div>
 
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detail Instruktur</DialogTitle>
           </DialogHeader>
@@ -681,7 +690,7 @@ export default function InstructorsPage() {
 
       {/* Edit Instructor Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Instruktur</DialogTitle>
             <DialogDescription>
@@ -801,13 +810,23 @@ export default function InstructorsPage() {
                             </div>
                           )}
                           <div className="flex-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full mb-2"
+                              onClick={() => editFileInputRef.current?.click()}
+                              disabled={isUploading}
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              {editForm.getValues('photo_url') ? "Ganti Foto" : "Pilih Foto"}
+                            </Button>
                             <Input
                               ref={editFileInputRef}
                               type="file"
                               accept="image/jpeg,image/png,image/webp,image/gif"
                               onChange={(e) => handlePhotoSelect(e, true)}
                               disabled={isUploading}
-                              className="cursor-pointer"
+                              className="hidden"
                             />
                             <p className="text-xs text-muted-foreground mt-2">
                               Ukuran maks 5MB. Format: JPG, PNG, WebP, GIF.

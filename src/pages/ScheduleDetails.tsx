@@ -471,7 +471,7 @@ export default function ScheduleDetailsPage() {
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Instrument</CardTitle>
+            <CardTitle className="text-sm font-medium">Instrumen</CardTitle>
             <Music className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -480,7 +480,7 @@ export default function ScheduleDetailsPage() {
                   // 1. Try to get from specific filtered Course
                   if (courseId && courseId !== 'undefined' && courseId !== 'null') {
                       const course = courses.find((c: any) => String(c.id) === String(courseId));
-                      return course?.instrument || 'Semua Instrument';
+                      return course?.instrument || 'Semua Instrumen';
                   }
 
                   // 2. Try to infer from the visible schedules (context)
@@ -492,7 +492,7 @@ export default function ScheduleDetailsPage() {
                       }
                   }
 
-                  return 'Semua Instrument';
+                  return 'Semua Instrumen';
               })()}
             </div>
           </CardContent>

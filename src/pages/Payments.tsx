@@ -51,12 +51,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye, ZoomIn, Filter, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Check, ChevronsUpDown, Loader2, Eye, ZoomIn, Filter, X, Upload } from 'lucide-react';
+import { useRef } from 'react';
 import { Label } from '@/components/ui/label';
 import { useBookings } from '@/hooks/useQueries';
 import { cn } from '@/lib/utils';
 import { uploadToStorage } from '@/lib/supabase';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+
+const typeMap: Record<string, string> = {
+  Registration: 'Pendaftaran',
+  Monthly: 'Bulanan',
+  'Initial Booking': 'Pendaftaran Awal'
+};
+
+const methodMap: Record<string, string> = {
+  cash: 'Tunai',
+  virtual_account: 'Transfer BCA',
+  'Initial Booking': 'Pendaftaran Awal',
+  transfer: 'Transfer'
+};
+
+const statusMap: Record<string, string> = {
+  paid: 'Lunas',
+  pending: 'Menunggu',
+  overdue: 'Terlambat',
+  cancelled: 'Dibatalkan'
+};
 
 export default function PaymentsPage() {
   const { toast } = useToast();
@@ -70,7 +91,10 @@ export default function PaymentsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null);
+
   const [isImageZoomed, setIsImageZoomed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter states
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
@@ -84,7 +108,7 @@ export default function PaymentsPage() {
     amount: '',
     payment_date: new Date().toISOString().split('T')[0],
     payment_period: new Date().toISOString().slice(0, 7), // YYYY-MM
-    payment_method: 'transfer' as PaymentMethod,
+    payment_method: 'virtual_account' as PaymentMethod,
     // status is not in the requested payload, but we might keep it for local UI state if needed, 
     // or remove it from payload construction.
     status: 'pending' as PaymentStatus, 
@@ -210,7 +234,7 @@ export default function PaymentsPage() {
       amount: '',
       payment_date: new Date().toISOString().split('T')[0],
       payment_period: new Date().toISOString().slice(0, 7),
-      payment_method: 'transfer',
+      payment_method: 'virtual_account',
       status: 'pending',
       notes: '',
       payment_proof: '',
@@ -349,8 +373,8 @@ export default function PaymentsPage() {
                   <PopoverContent className="w-40 p-1" align="start">
                     <div className="flex flex-col gap-1">
                       <Button variant={filterType === null ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType(null); setOpenFilterPopover(null); }}>Semua</Button>
-                      <Button variant={filterType === 'Registration' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType('Registration'); setOpenFilterPopover(null); }}>Registration</Button>
-                      <Button variant={filterType === 'Monthly' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType('Monthly'); setOpenFilterPopover(null); }}>Monthly</Button>
+                      <Button variant={filterType === 'Registration' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType('Registration'); setOpenFilterPopover(null); }}>Pendaftaran</Button>
+                      <Button variant={filterType === 'Monthly' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterType('Monthly'); setOpenFilterPopover(null); }}>Bulanan</Button>
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -366,9 +390,9 @@ export default function PaymentsPage() {
                   <PopoverContent className="w-40 p-1" align="start">
                     <div className="flex flex-col gap-1">
                       <Button variant={filterMethod === null ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod(null); setOpenFilterPopover(null); }}>Semua</Button>
-                      <Button variant={filterMethod === 'cash' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('cash'); setOpenFilterPopover(null); }}>Cash</Button>
-                      <Button variant={filterMethod === 'virtual_account' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('virtual_account'); setOpenFilterPopover(null); }}>BCA</Button>
-                      <Button variant={filterMethod === 'Initial Booking' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('Initial Booking'); setOpenFilterPopover(null); }}>Initial Booking</Button>
+                      <Button variant={filterMethod === 'cash' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('cash'); setOpenFilterPopover(null); }}>Tunai</Button>
+                      <Button variant={filterMethod === 'virtual_account' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('virtual_account'); setOpenFilterPopover(null); }}>Transfer BCA</Button>
+                      <Button variant={filterMethod === 'Initial Booking' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterMethod('Initial Booking'); setOpenFilterPopover(null); }}>Pendaftaran Awal</Button>
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -386,9 +410,9 @@ export default function PaymentsPage() {
                     <div className="flex flex-col gap-1">
                       <Button variant={filterStatus === null ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus(null); setOpenFilterPopover(null); }}>Semua</Button>
                       <Button variant={filterStatus === 'paid' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('paid'); setOpenFilterPopover(null); }}>Lunas</Button>
-                      <Button variant={filterStatus === 'pending' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('pending'); setOpenFilterPopover(null); }}>Pending</Button>
-                      <Button variant={filterStatus === 'overdue' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('overdue'); setOpenFilterPopover(null); }}>Overdue</Button>
-                      <Button variant={filterStatus === 'cancelled' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('cancelled'); setOpenFilterPopover(null); }}>Cancelled</Button>
+                      <Button variant={filterStatus === 'pending' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('pending'); setOpenFilterPopover(null); }}>Menunggu</Button>
+                      <Button variant={filterStatus === 'overdue' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('overdue'); setOpenFilterPopover(null); }}>Terlambat</Button>
+                      <Button variant={filterStatus === 'cancelled' ? 'secondary' : 'ghost'} size="sm" className="justify-start" onClick={() => { setFilterStatus('cancelled'); setOpenFilterPopover(null); }}>Dibatalkan</Button>
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -412,8 +436,13 @@ export default function PaymentsPage() {
                   <TableCell className="font-medium">
                     {payment.student_name || (payment.booking_id ? bookingNameMap[payment.booking_id] : null) || payment.student_id || '-'}
                   </TableCell>
-                  <TableCell className="capitalize">{payment.payment_type || (payment.payment_method === 'Initial Booking' ? 'Registration' : 'Monthly')}</TableCell>
-                  <TableCell className="capitalize">{payment.payment_method?.replace('_', ' ') || '-'}</TableCell>
+                  <TableCell className="capitalize">
+                    {(() => {
+                      const type = payment.payment_type || (payment.payment_method === 'Initial Booking' ? 'Registration' : 'Monthly');
+                      return typeMap[type] || type;
+                    })()}
+                  </TableCell>
+                  <TableCell className="capitalize">{methodMap[payment.payment_method] || payment.payment_method?.replace('_', ' ') || '-'}</TableCell>
                   <TableCell>Rp {payment.amount.toLocaleString()}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
@@ -421,7 +450,7 @@ export default function PaymentsPage() {
                         (payment.status || 'pending') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                         (payment.status || 'pending') === 'overdue' ? 'bg-orange-100 text-orange-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {(payment.status || 'pending') === 'paid' ? 'Lunas' : payment.status}
+                      {statusMap[payment.status || 'pending'] || payment.status}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -469,7 +498,7 @@ export default function PaymentsPage() {
 
       {/* Add Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="overflow-y-visible">
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tambah Pembayaran Baru</DialogTitle>
             <DialogDescription>Catat transaksi pembayaran baru.</DialogDescription>
@@ -477,7 +506,7 @@ export default function PaymentsPage() {
           <form onSubmit={(e) => handleSubmit(e, false)}>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2 flex flex-col">
-                <Label htmlFor="student_id">Nama Siswa (Auto-suggestion)</Label>
+                <Label htmlFor="student_id">Nama Siswa</Label>
                 <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                   <PopoverTrigger asChild>
                     <Button
@@ -549,8 +578,8 @@ export default function PaymentsPage() {
                   <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="virtual_account">BCA</SelectItem>
+
+                      <SelectItem value="virtual_account">Transfer BCA</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -560,10 +589,10 @@ export default function PaymentsPage() {
                 <Select value={formData.status} onValueChange={(val: PaymentStatus) => setFormData({...formData, status: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="pending">Menunggu</SelectItem>
                       <SelectItem value="paid">Lunas</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="overdue">Terlambat</SelectItem>
+                      <SelectItem value="cancelled">Dibatalkan</SelectItem>
                     </SelectContent>
                   </Select>
               </div>
@@ -593,12 +622,24 @@ export default function PaymentsPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                       <Upload className="mr-2 h-4 w-4" />
+                       Pilih Bukti Transfer
+                    </Button>
                     <Input 
+                      ref={fileInputRef}
                       id="payment_proof" 
                       type="file" 
                       accept="image/*"
                       onChange={handleFileChange}
                       disabled={isUploading}
+                      className="hidden"
                     />
                     {isUploading && <Loader2 className="animate-spin h-4 w-4" />}
                   </div>
@@ -615,7 +656,7 @@ export default function PaymentsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Pembayaran</DialogTitle>
             <DialogDescription>
@@ -697,8 +738,8 @@ export default function PaymentsPage() {
                   <Select value={formData.payment_method} onValueChange={(val: PaymentMethod) => setFormData({...formData, payment_method: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="virtual_account">BCA</SelectItem>
+
+                      <SelectItem value="virtual_account">Transfer BCA</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -708,10 +749,10 @@ export default function PaymentsPage() {
                 <Select value={formData.status} onValueChange={(val: PaymentStatus) => setFormData({...formData, status: val})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="pending">Menunggu</SelectItem>
                       <SelectItem value="paid">Lunas</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="overdue">Terlambat</SelectItem>
+                      <SelectItem value="cancelled">Dibatalkan</SelectItem>
                     </SelectContent>
                   </Select>
               </div>
@@ -741,12 +782,24 @@ export default function PaymentsPage() {
                     </div>
                   )}
                   <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                       <Upload className="mr-2 h-4 w-4" />
+                       Ganti Bukti Transfer
+                    </Button>
                     <Input 
+                      ref={editFileInputRef}
                       id="edit_payment_proof" 
                       type="file" 
                       accept="image/*"
                       onChange={handleFileChange}
                       disabled={isUploading}
+                      className="hidden"
                     />
                      {isUploading && <Loader2 className="animate-spin h-4 w-4" />}
                   </div>
@@ -763,7 +816,7 @@ export default function PaymentsPage() {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detail Pembayaran</DialogTitle>
           </DialogHeader>
@@ -790,7 +843,7 @@ export default function PaymentsPage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Metode</Label>
-                  <div className="font-medium capitalize">{selectedPayment.payment_method?.replace('_', ' ') || '-'}</div>
+                  <div className="font-medium capitalize">{methodMap[selectedPayment.payment_method] || selectedPayment.payment_method?.replace('_', ' ') || '-'}</div>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
@@ -800,7 +853,7 @@ export default function PaymentsPage() {
                         (selectedPayment.status || 'pending') === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
                         (selectedPayment.status || 'pending') === 'overdue' ? 'bg-orange-100 text-orange-800' :
                         'bg-red-100 text-red-800'}`}>
-                      {(selectedPayment.status || 'pending') === 'paid' ? 'Lunas' : selectedPayment.status}
+                      {statusMap[selectedPayment.status || 'pending'] || selectedPayment.status}
                     </span>
                   </div>
                 </div>

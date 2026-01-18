@@ -122,6 +122,17 @@ const updateStudentSchema = z.object({
   notes: z.string().optional().or(z.literal('')),
 });
 
+const dayMap: { [key: string]: string } = {
+  monday: 'Senin',
+  tuesday: 'Selasa',
+  wednesday: 'Rabu',
+  thursday: 'Kamis',
+  friday: 'Jumat',
+  saturday: 'Sabtu',
+  sunday: 'Minggu',
+  tbd: 'TBD'
+};
+
 export default function StudentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -221,7 +232,7 @@ export default function StudentsPage() {
     const extractTimeInfo = (dateString: string) => {
       try {
         const date = new Date(dateString);
-        return date.toLocaleTimeString('en-US', { 
+        return date.toLocaleTimeString('id-ID', { 
           hour: '2-digit', 
           minute: '2-digit', 
           hour12: false 
@@ -234,7 +245,9 @@ export default function StudentsPage() {
     const extractDayOfWeek = (dateString: string) => {
       try {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { weekday: 'long' });
+        const day = date.toLocaleDateString('id-ID', { weekday: 'long' });
+        // Capitalize first letter
+        return day.charAt(0).toUpperCase() + day.slice(1);
       } catch {
         return 'TBD';
       }
@@ -261,7 +274,12 @@ export default function StudentsPage() {
                 // Use start_time_of_day if start_time is null
                 const startTime = normalizeTime(slot.start_time_of_day || slot.start_time || slot.start);
                 const endTime = normalizeTime(slot.end_time_of_day || slot.end_time || slot.end);
-                slotInfo = `${slot.day_of_week || slot.day || 'TBD'} ${startTime} - ${endTime}`;
+                const dayRaw = (slot.day_of_week || slot.day || 'TBD').toLowerCase();
+                const dayIndo = dayMap[dayRaw] || dayRaw;
+                // Capitalize first letter if it was a raw string not in map
+                const dayFinal = dayMap[dayRaw] ? dayIndo : dayIndo.charAt(0).toUpperCase() + dayIndo.slice(1);
+                
+                slotInfo = `${dayFinal} ${startTime} - ${endTime}`;
               }
               lookup[slot.id] = slotInfo;
             }
@@ -280,7 +298,11 @@ export default function StudentsPage() {
             // New subscription format with start_time_of_day
             const startTime = normalizeTime(schedule.start_time_of_day);
             const endTime = normalizeTime(schedule.end_time_of_day);
-            slotInfo = `${schedule.day_of_week || 'TBD'} ${startTime} - ${endTime}`;
+            const dayRaw = (schedule.day_of_week || 'TBD').toLowerCase();
+            const dayIndo = dayMap[dayRaw] || dayRaw;
+            const dayFinal = dayMap[dayRaw] ? dayIndo : dayIndo.charAt(0).toUpperCase() + dayIndo.slice(1);
+            
+            slotInfo = `${dayFinal} ${startTime} - ${endTime}`;
           } else if (schedule.start_time.includes('T')) {
             // Old ISO datetime format
             const dayOfWeek = extractDayOfWeek(schedule.start_time);
@@ -289,7 +311,10 @@ export default function StudentsPage() {
             slotInfo = `${dayOfWeek} ${startTime} - ${endTime}`;
           } else {
             // Old simple time format
-            slotInfo = `${schedule.day_of_week || 'TBD'} ${schedule.start_time} - ${schedule.end_time}`;
+            const dayRaw = (schedule.day_of_week || 'TBD').toLowerCase();
+            const dayIndo = dayMap[dayRaw] || dayRaw;
+            const dayFinal = dayMap[dayRaw] ? dayIndo : dayIndo.charAt(0).toUpperCase() + dayIndo.slice(1);
+            slotInfo = `${dayFinal} ${schedule.start_time} - ${schedule.end_time}`;
           }
           lookup[schedule.id] = slotInfo;
         }
@@ -312,10 +337,14 @@ export default function StudentsPage() {
     if (slotId && slotsMap[slotId]) return slotsMap[slotId];
     
     if (prefText && typeof prefText === 'object') {
-       const day = prefText.day || prefText.day_of_week || 'TBD';
+       const dayRaw = (prefText.day || prefText.day_of_week || 'TBD').toLowerCase();
+       const day = dayMap[dayRaw] || dayRaw;
+       // Capitalize if needed (though map has it capitalized)
+       const dayFinal = dayMap[dayRaw] ? day : day.charAt(0).toUpperCase() + day.slice(1);
+
        const start = prefText.start_time || prefText.start || '';
        const end = prefText.end_time || prefText.end || '';
-       return `${day} ${start} - ${end}`;
+       return `${dayFinal} ${start} - ${end}`;
     }
 
     if (prefText && typeof prefText === 'string') return prefText;
@@ -334,8 +363,18 @@ export default function StudentsPage() {
       .map((slot: any) => {
       let label = "";
       
-      const dayOfWeek = slot.day_of_week || 
-        (slot.start_time ? new Date(slot.start_time).toLocaleDateString('id-ID', { weekday: 'long' }) : 'TBD');
+      let dayOfWeek = 'TBD';
+      if (slot.start_time && slot.start_time.includes('T')) {
+         const d = new Date(slot.start_time);
+         const day = d.toLocaleDateString('id-ID', { weekday: 'long' });
+         dayOfWeek = day.charAt(0).toUpperCase() + day.slice(1);
+      } else if (slot.day_of_week) {
+         const dayRaw = slot.day_of_week.toLowerCase();
+         dayOfWeek = dayMap[dayRaw] || slot.day_of_week;
+         if (!dayMap[dayRaw]) {
+            dayOfWeek = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+         }
+      }
 
       // Helper to format time HH:MM
       const formatTime = (timeStr: string) => {

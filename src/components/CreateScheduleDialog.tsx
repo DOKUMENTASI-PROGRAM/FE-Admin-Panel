@@ -35,20 +35,20 @@ import { Plus, Trash } from "lucide-react";
 
 
 const scheduleSchema = z.object({
-  course_id: z.string().min(1, "Course is required"),
-  instructor_id: z.string().min(1, "Instructor is required"),
-  room_id: z.string().min(1, "Room is required"),
+  course_id: z.string().min(1, "Kursus wajib dipilih"),
+  instructor_id: z.string().min(1, "Instruktur wajib dipilih"),
+  room_id: z.string().min(1, "Ruangan wajib dipilih"),
   // start_date: z.string().min(1, "Start date is required"),
   // end_date: z.string().min(1, "End date is required"),
-  max_students: z.coerce.number().min(1, "Max students must be at least 1"),
+  max_students: z.coerce.number().min(1, "Maksimal siswa minimal 1"),
   schedule: z.array(
     z.object({
-      day_of_week: z.string().min(1, "Day is required"),
-      start_time: z.string().min(1, "Start time is required"),
-      end_time: z.string().min(1, "End time is required"),
-      duration: z.coerce.number().min(1, "Duration is required"),
+      day_of_week: z.string().min(1, "Hari wajib dipilih"),
+      start_time: z.string().min(1, "Waktu mulai wajib dipilih"),
+      end_time: z.string().min(1, "Waktu selesai wajib dipilih"),
+      duration: z.coerce.number().min(1, "Durasi wajib diisi"),
     })
-  ).min(1, "At least one schedule slot is required"),
+  ).min(1, "Minimal satu slot jadwal diperlukan"),
 });
 
 type ScheduleFormValues = z.infer<typeof scheduleSchema>;
@@ -130,8 +130,8 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
     },
     onSuccess: () => {
       toast({
-        title: "Success",
-        description: "Schedule created successfully",
+        title: "Berhasil",
+        description: "Jadwal berhasil dibuat",
       });
       queryClient.invalidateQueries({ queryKey: ["schedules"] });
       setOpen(false);
@@ -141,7 +141,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.response?.data?.message || "Failed to create schedule",
+        description: error.response?.data?.message || "Gagal membuat jadwal",
       });
     },
   });
@@ -151,6 +151,15 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
   };
 
   const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  const dayNames = {
+    monday: "Senin",
+    tuesday: "Selasa",
+    wednesday: "Rabu",
+    thursday: "Kamis",
+    friday: "Jumat",
+    saturday: "Sabtu",
+    sunday: "Minggu"
+  };
 
   const timeOptions: string[] = [];
   for (let i = 0; i < 24; i++) {
@@ -162,13 +171,13 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || <Button variant="outline">Create Schedule</Button>}
+        {trigger || <Button variant="outline">Buat Jadwal</Button>}
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Schedule {courseTitle ? `for ${courseTitle}` : ""}</DialogTitle>
+          <DialogTitle>Buat Jadwal {courseTitle ? `untuk ${courseTitle}` : ""}</DialogTitle>
           <DialogDescription>
-            Set up a new schedule for this course.
+            Atur jadwal baru untuk kursus ini.
           </DialogDescription>
         </DialogHeader>
 
@@ -180,11 +189,11 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                 name="course_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Course</FormLabel>
+                    <FormLabel>Kursus</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select course" />
+                          <SelectValue placeholder="Pilih kursus" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -207,11 +216,11 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                 name="instructor_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Instructor</FormLabel>
+                    <FormLabel>Instruktur</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedCourseId && !courseId}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select instructor" />
+                          <SelectValue placeholder="Pilih instruktur" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -232,11 +241,11 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                 name="room_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Room</FormLabel>
+                    <FormLabel>Ruangan</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select room" />
+                          <SelectValue placeholder="Pilih ruangan" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -260,7 +269,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
               name="max_students"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Max Students</FormLabel>
+                  <FormLabel>Maks Siswa</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
                   </FormControl>
@@ -271,7 +280,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
 
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-medium">Weekly Schedule</h4>
+                <h4 className="text-sm font-medium">Jadwal Mingguan</h4>
                 <Button
                   type="button"
                   variant="outline"
@@ -279,7 +288,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                   onClick={() => append({ day_of_week: "monday", start_time: "09:00", end_time: "09:30", duration: 30 })}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Slot
+                  Tambah Slot
                 </Button>
               </div>
 
@@ -291,7 +300,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                       name={`schedule.${index}.day_of_week`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Day</FormLabel>
+                          <FormLabel className="text-xs">Hari</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -301,7 +310,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                             <SelectContent>
                               {days.map((day) => (
                                 <SelectItem key={day} value={day}>
-                                  {day.charAt(0).toUpperCase() + day.slice(1)}
+                                  {dayNames[day as keyof typeof dayNames]}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -316,7 +325,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                         name={`schedule.${index}.start_time`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Start</FormLabel>
+                            <FormLabel className="text-xs">Mulai</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -341,7 +350,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                         name={`schedule.${index}.end_time`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">End</FormLabel>
+                            <FormLabel className="text-xs">Selesai</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -366,7 +375,7 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
                       name={`schedule.${index}.duration`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Dur (min)</FormLabel>
+                          <FormLabel className="text-xs">Durasi (mnt)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
@@ -391,10 +400,10 @@ export function CreateScheduleDialog({ courseId, courseTitle, trigger }: CreateS
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
+                Batal
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? "Creating..." : "Create Schedule"}
+                {mutation.isPending ? "Membuat..." : "Buat Jadwal"}
               </Button>
             </div>
           </form>
